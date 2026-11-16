@@ -1,0 +1,16 @@
+{
+  "runUrl": "https://github.com/baitianxia/computer-use-mcp-server/actions/runs/43862520352",
+  "runId": 43862520352,
+  "jobId": 133282698837,
+  "sourceCommit": "f7016ca31d4219d6d8f9662b9a852dd57d98d4de",
+  "runnerOs": "Windows Server 2025 x64, build 26100",
+  "dotnetSdk": "10.0.404",
+  "artifactId": 14223672052,
+  "artifactSha256": "65751596050ba8315cf2ae152ee03d6017ac382b684368b2f3ec7999116a6932",
+  "files": {
+    "protocol-smoke.json": "8c6d8eb36dd14777b29b35a38e5915f4c0688392b5e681ae39e15a0d8fa2b917",
+    "windows-smoke.json": "17753dd6956715485522c18820493b6ae830989d14f756a941af58e006684048",
+    "demo-capture.png": "eb1ea4449628d19a8759c76531806c492cc59fc78bfbc6efe86090bf860c7ad4",
+    "demo-moved-scaled.png": "e2b707b6bea6fe55da520ccd6ff7ed75d12a506efc46e5262523aa54355a5289"
+  }
+}

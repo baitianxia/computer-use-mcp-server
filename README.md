@@ -2,7 +2,7 @@
 
 本地功能验证版：让 **Claude Code CLI** 通过标准 MCP stdio 工具发现 Windows 窗口、读取 UI Automation、截图并执行桌面动作。推理和任务规划由 Claude Code 负责；MCP 不调用模型。
 
-**当前验证范围：** 本项目已在 macOS 交叉编译；通用逻辑与 MCP 协议测试通过。Windows 实际桌面行为、Claude Code 真实接入、视觉任务和业务客户端仍未验证。详见 [验收记录](docs/acceptance.md)。
+**当前验证范围：** 已在 GitHub Actions 的 **Windows Server 2025 x64** 上通过构建、MCP 协议和 Demo 原生桌面测试，覆盖 UIA 查询、WGC 截图、截图坐标点击、Unicode 键盘输入、弹窗及窗口恢复。Windows 10/11 兼容性、Claude Code 实际会话和真实业务客户端仍未验证。详见 [验收记录](docs/acceptance.md) 和 [Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/43862520352)。
 
 ## 交付结构
 
@@ -107,7 +107,7 @@ Windows 示例闭环（需要 .NET 10 SDK 和交互桌面，先构建）：
 .\scripts\Test-Windows.ps1
 ```
 
-该脚本通过真实 MCP stdio 启动服务，启动本项目的测试客户端，查询 A1001 和 A1002，核对序号/结果，显式使用 WGC 检查图片及坐标元数据，检查失效引用，然后关闭它启动的测试客户端。WGC 失败会使测试失败，不会用其他截图后端掩盖结果。报告写入 `artifacts/acceptance/windows-smoke.json`，截图为 `demo-capture.png`。这是协议和原生示例测试，**不是 Claude Code 模型操作测试**；图片内容仍需目视确认。
+该脚本通过真实 MCP stdio 操作它自行启动的测试客户端，验证两次订单查询、强制 WGC 截图、根据 PNG 颜色定位自绘区域并点击、中文与 emoji 输入、快捷键清空、弹窗关闭、移动后旧坐标拒绝、缩放截图点击、最小化恢复及应用关闭重开。WGC 失败会使测试失败，不会用其他截图后端掩盖结果。报告写入 `artifacts/acceptance/windows-smoke.json`，截图为 `demo-capture.png` 和 `demo-moved-scaled.png`。图像定位使用测试画布的已知颜色，**不是 Claude Code 的视觉理解或自主规划测试**。
 
 不操作桌面的协议检查：
 
@@ -171,4 +171,4 @@ dotnet run --project tests/WindowsComputerUse.Tests -c Release -- --protocol --s
 
 ## 下一步
 
-先在 Windows 上执行 WGC、示例闭环与 Claude Code 接入验收，然后选择首个真实客户端。后续再扩展虚拟化表格、事件驱动等待、更多客户端和完整安全治理。
+继续在 Windows 10/11 上验证兼容性和 Claude Code 实际会话，再选择首个真实客户端。当前 CI 已验证的范围见验收记录；虚拟化表格、事件驱动等待、更多客户端和完整安全治理尚未完成。

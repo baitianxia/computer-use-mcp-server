@@ -76,4 +76,4 @@ ActionResult 的 `execution=executed` 只表示动作返回；`verification=not_
 
 ## 当前未覆盖
 
-WGC 的 Windows 实机兼容性验证、窗口生命周期事件、严格用户输入隔离、完整 UIA 模式集合、虚拟化表格查找、剪贴板粘贴、异步业务任务队列及业务审批。通用的 `wait_for` 不替代具体客户端的业务验证规则。
+Windows 10/11 与跨 UI 框架的兼容性验证、窗口生命周期事件、严格用户输入隔离、完整 UIA 模式集合、虚拟化表格查找、剪贴板粘贴、异步业务任务队列及业务审批。Windows Server 2025 的 Demo 原生验证记录见 [验收说明](acceptance.md)。通用的 `wait_for` 不替代具体客户端的业务验证规则。
