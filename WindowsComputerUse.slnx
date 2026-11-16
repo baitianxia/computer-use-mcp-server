@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/WindowsComputerUse.Core/WindowsComputerUse.Core.csproj" />
+  <Project Path="src/WindowsComputerUse.Server/WindowsComputerUse.Server.csproj" />
+  <Project Path="src/WindowsComputerUse.Worker/WindowsComputerUse.Worker.csproj" />
+  <Project Path="samples/CuDemo/CuDemo.csproj" />
+  <Project Path="tests/WindowsComputerUse.Tests/WindowsComputerUse.Tests.csproj" />
+</Solution>

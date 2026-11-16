@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "windows_cu": {
+      "type": "stdio",
+      "command": "C:\\path\\to\\computer-use\\artifacts\\win-x64\\server\\WindowsComputerUse.Server.exe",
+      "args": []
+    }
+  }
+}

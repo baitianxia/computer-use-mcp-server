@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/WindowsComputerUse.Core/WindowsComputerUse.Core.csproj" /><ProjectReference Include="../../src/WindowsComputerUse.Server/WindowsComputerUse.Server.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/WindowsComputerUse.Worker/Native.cs" Link="NativeInputLayout.cs" /></ItemGroup>
+</Project>

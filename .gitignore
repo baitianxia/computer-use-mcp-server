@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+artifacts/
+.mcp.json
+*.user
+*.log
+.DS_Store
