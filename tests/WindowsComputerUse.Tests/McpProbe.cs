@@ -5,7 +5,7 @@ using System.Runtime.Versioning;
 using System.Text.Json;
 using WindowsComputerUse.Core;
 
-internal sealed class McpProbe : IDisposable
+internal sealed partial class McpProbe : IDisposable
 {
     private readonly Process server;
     private readonly List<object> checks = [];

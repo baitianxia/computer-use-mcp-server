@@ -5,3 +5,6 @@ artifacts/
 *.user
 *.log
 .DS_Store
+
+.mcp.json.bak-*
+test-results/

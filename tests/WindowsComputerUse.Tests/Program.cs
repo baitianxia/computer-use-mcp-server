@@ -5,6 +5,12 @@ using WindowsComputerUse.Core;
 using WindowsComputerUse.Server;
 using WindowsComputerUse.Worker;
 
+if (args.Contains("--windows-matrix"))
+{
+    Environment.ExitCode = await McpProbe.RunMatrix(args);
+    return;
+}
+
 if (args.Contains("--protocol") || args.Contains("--windows-smoke"))
 {
     Environment.ExitCode = await McpProbe.Run(args, args.Contains("--windows-smoke"));
@@ -52,6 +58,43 @@ Check("coordinates need an observation", () => ExpectError("observation_required
 Check("unknown actions fail before execution", () => ExpectError("invalid_action", () => ActionRules.Validate(new("window", "invented"))));
 Check("invalid wait delays rejected", () => ExpectError("invalid_argument", () => ActionRules.Validate(new("window", "activate", ObserveDelayMs: -1))));
 Check("drag needs both endpoints", () => ExpectError("invalid_argument", () => ActionRules.Validate(new("window", "drag", ObservationId: "capture", X: 1, Y: 2))));
+Check("selectors combine independent identity signals", () =>
+{
+    var window = new WindowInfo("w", new(123, 45, 67), "Orders - staging", "OrdersApp", @"C:\apps\orders.exe", 0, new(), false, false, "MainWindow", 144);
+    Assert(Selectors.Matches(window, new(ProcessName: "ordersapp", TitleContains: "staging", ProcessId: 45)), "Valid composite match rejected.");
+    Assert(!Selectors.Matches(window, new(ProcessName: "OrdersApp", ProcessId: 46)), "Wrong process accepted.");
+    var element = new ElementInfo("e", null, 0, "Submit order", "submit", "Button", "Button", true, false, new(), []);
+    Assert(Selectors.Matches(element, new(AutomationId: "submit", ControlType: "button")), "Valid element match rejected.");
+    Assert(!Selectors.Matches(element, new(AutomationId: "submit", Name: "Cancel")), "Only one selector field was checked.");
+});
+Check("absence needs complete observation and unknown states do not match", () =>
+{
+    var window = new WindowInfo("w", new(1, 2, 3), "Window", "app", null, 0, new(), false, false);
+    var obs = new Observation("o", "w", DateTimeOffset.UtcNow, window, [], true, []);
+    var absent = new WaitRequest("w", Condition: "absent", Selector: new(AutomationId: "missing"));
+    Assert(!WaitRules.Matches(obs, absent), "Incomplete tree incorrectly proved absence.");
+    Assert(WaitRules.Matches(obs with { Truncated = false }, absent), "Complete empty tree should match absence.");
+    var e = new ElementInfo("e", null, 0, "Choice", "choice", "ListItem", "", true, false, new(), []);
+    var unselected = new WaitRequest("w", Condition: "unselected", Selector: new(AutomationId: "choice"));
+    Assert(!WaitRules.Matches(obs with { Elements = [e] }, unselected), "Missing SelectionItem state must be unknown.");
+    Assert(WaitRules.Matches(obs with { Elements = [e with { State = new(Selected: false) }] }, unselected), "Known false state lost.");
+});
+Check("condition waits reject underspecified predicates", () =>
+{
+    ExpectError("invalid_argument", () => WaitRules.Validate(new("w")));
+    ExpectError("invalid_argument", () => WaitRules.Validate(new("w", Condition: "absent")));
+    ExpectError("invalid_argument", () => WaitRules.Validate(new("w", "text", MaxNodes: 501)));
+    WaitRules.Validate(new("w", "", Condition: "value_equals", Selector: new(AutomationId: "input")));
+});
+Check("range and scroll actions validate before reaching Windows", () =>
+{
+    var request = new ActionRequest("w", "set_range_value", "background_only", "o", "e");
+    ExpectError("invalid_argument", () => ActionRules.Validate(request));
+    ExpectError("invalid_argument", () => ActionRules.Validate(request with { Number = double.NaN }));
+    ActionRules.Validate(request with { Number = 73 });
+    ExpectError("invalid_argument", () => ActionRules.Validate(request with { Action = "scroll_pattern" }));
+    ActionRules.Validate(request with { Action = "scroll_pattern", Vertical = "large_increment" });
+});
 Check("image coordinates map to scaled negative-origin screen", () =>
 {
     var c = new CaptureInfo("capture", "window", DateTimeOffset.UtcNow, "screen", new(-1920, -100, 1920, 1080), 960, 540, []);

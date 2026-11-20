@@ -28,19 +28,28 @@ public readonly record struct PixelRect(int X, int Y, int Width, int Height)
 
 public sealed record WindowIdentity(long Handle, int ProcessId, long ProcessStartedUtcTicks);
 public sealed record WindowInfo(string WindowRef, WindowIdentity Identity, string Title, string ProcessName,
-    string? ExecutablePath, long OwnerHandle, PixelRect Bounds, bool Minimized, bool Foreground);
+    string? ExecutablePath, long OwnerHandle, PixelRect Bounds, bool Minimized, bool Foreground,
+    string ClassName = "", uint Dpi = 96);
 public sealed record ElementInfo(string ElementRef, string? ParentRef, int Depth, string Name, string AutomationId,
     string ControlType, string ClassName, bool Enabled, bool Offscreen, PixelRect Bounds,
-    string[] Patterns, string? Value = null, string? Text = null);
+    string[] Patterns, string? Value = null, string? Text = null, ElementState? State = null);
+public sealed record ElementState(string? Toggle = null, bool? Selected = null, string? ExpandCollapse = null,
+    bool? ReadOnly = null, double? RangeValue = null, double? RangeMinimum = null, double? RangeMaximum = null,
+    double? HorizontalScrollPercent = null, double? VerticalScrollPercent = null);
 public sealed record Observation(string ObservationId, string WindowRef, DateTimeOffset ObservedAt,
-    WindowInfo Window, IReadOnlyList<ElementInfo> Elements, bool Truncated, string[] Warnings);
+    WindowInfo Window, IReadOnlyList<ElementInfo> Elements, bool Truncated, string[] Warnings,
+    int ScannedNodes = 0, bool Filtered = false);
 public sealed record CaptureInfo(string ObservationId, string WindowRef, DateTimeOffset CapturedAt, string Method,
     PixelRect ScreenBounds, int ImageWidth, int ImageHeight, string[] Warnings,
     PixelRect? WindowBounds = null, string BoundsSource = "window_rect", long? FrameSystemRelativeTimeTicks = null,
     string? RequestedMethod = null, DesktopError? FallbackError = null);
 
-public sealed record ListRequest(string? Query = null, int Limit = 50);
-public sealed record InspectRequest(string WindowRef, int MaxDepth = 5, int MaxNodes = 150);
+public sealed record WindowSelector(string? ProcessName = null, string? TitleContains = null, string? ExecutablePath = null,
+    string? ClassName = null, int? ProcessId = null);
+public sealed record ElementSelector(string? AutomationId = null, string? Name = null, string? NameContains = null,
+    string? ControlType = null, string? ClassName = null);
+public sealed record ListRequest(string? Query = null, int Limit = 50, WindowSelector? Selector = null);
+public sealed record InspectRequest(string WindowRef, int MaxDepth = 5, int MaxNodes = 150, ElementSelector? Selector = null);
 public sealed record CaptureRequest(string WindowRef, string Method = "auto", int MaxWidth = 1600);
 public sealed record ActionRequest(
     string WindowRef,
@@ -56,20 +65,24 @@ public sealed record ActionRequest(
     int? ToY = null,
     int ScrollDelta = -120,
     string Button = "left",
-    int ObserveDelayMs = 200);
+    int ObserveDelayMs = 200,
+    double? Number = null,
+    string Horizontal = "no_amount",
+    string Vertical = "no_amount");
 public sealed record ActionResult(string ActionId, string Execution, string Verification,
     string Method, bool ForegroundChanged, Observation? Observation, string[] Warnings);
-public sealed record WaitRequest(string WindowRef, string Text, int TimeoutMs = 5000, bool Exact = false);
+public sealed record WaitRequest(string WindowRef, string? Text = null, int TimeoutMs = 5000, bool Exact = false,
+    string Condition = "text", ElementSelector? Selector = null, int MaxDepth = 8, int MaxNodes = 300);
 
 public static class ActionRules
 {
-    public static readonly HashSet<string> PatternActions = ["invoke", "set_value", "toggle", "select", "expand", "collapse"];
+    public static readonly HashSet<string> PatternActions = ["invoke", "set_value", "toggle", "select", "add_selection", "remove_selection", "expand", "collapse", "set_range_value", "scroll_pattern", "scroll_into_view"];
     public static readonly HashSet<string> InputActions = ["click", "double_click", "move", "drag", "scroll", "type_text", "press_keys", "activate"];
 
     public static void Validate(ActionRequest request)
     {
         if (!PatternActions.Contains(request.Action) && !InputActions.Contains(request.Action))
-            throw new DesktopException("invalid_action", "Unknown action. Use invoke, set_value, toggle, select, expand, collapse, click, double_click, move, drag, scroll, type_text, press_keys or activate.");
+            throw new DesktopException("invalid_action", "Unknown action. See perform_action tool description for supported actions.");
         if (request.Mode is not ("background_only" or "foreground_allowed"))
             throw new DesktopException("invalid_mode", "Mode must be background_only or foreground_allowed.");
         if (request.Mode == "background_only" && InputActions.Contains(request.Action))
@@ -97,6 +110,15 @@ public static class ActionRules
             throw new DesktopException("invalid_argument", "observeDelayMs must be 0..3000.");
         if (request.ScrollDelta is < -12000 or > 12000)
             throw new DesktopException("invalid_argument", "scrollDelta must be -12000..12000.");
+        if (request.Action == "set_range_value" && (request.Number is null || !double.IsFinite(request.Number.Value)))
+            throw new DesktopException("invalid_argument", "set_range_value requires a finite number.");
+        if (request.Action == "scroll_pattern")
+        {
+            string[] amounts = ["no_amount", "small_increment", "small_decrement", "large_increment", "large_decrement"];
+            if (!amounts.Contains(request.Horizontal) || !amounts.Contains(request.Vertical)
+                || (request.Horizontal == "no_amount" && request.Vertical == "no_amount"))
+                throw new DesktopException("invalid_argument", "Specify a UIA scroll amount on at least one axis.");
+        }
     }
 }
 

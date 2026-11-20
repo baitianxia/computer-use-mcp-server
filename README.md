@@ -4,6 +4,10 @@
 
 **当前验证范围：** 已在 GitHub Actions 的 **Windows Server 2025 x64** 上通过构建、MCP 协议和 Demo 原生桌面测试，覆盖 UIA 查询、WGC 截图、截图坐标点击、Unicode 键盘输入、弹窗及窗口恢复。Windows 10/11 兼容性、Claude Code 实际会话和真实业务客户端仍未验证。详见 [验收记录](docs/acceptance.md) 和 [Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/43862520352)。
 
+本轮增加了控件筛选与状态、条件等待、更多 UIA 动作、WPF 原生矩阵和自包含集中测试包。当前改动的 Windows 运行结果以验收记录为准。
+
+**带到 Windows 测试：** 获取 `windows-cu-win-x64.zip`，完整解压，双击 `Start-Test.cmd`；然后运行 `Setup-Claude.cmd` 接入 Claude Code。[集中测试步骤](docs/windows-testing.md)。
+
 ## 交付结构
 
 | 路径 | 用途 |
@@ -15,6 +19,8 @@
 | `.claude/skills/cu-demo-orders` | Claude Code 示例客户端 Skill |
 | `templates/claude-client-skill` | 未安装的 Claude Code 客户端 Skill 模板 |
 | `samples/CuDemo` | 带查询、旧结果、弹窗、自绘图形的 WinForms 测试客户端 |
+| `samples/CuWpfDemo` | 多选、树节点、滑块、滚动和原生鼠标事件的 WPF 测试客户端 |
+| `Start-Test.cmd` / `Setup-Claude.cmd` | 集中测试入口 / Claude Code 项目 MCP 配置入口 |
 | `tests/WindowsComputerUse.Tests` | 可移植测试、真实 MCP 协议探针、Windows 示例闭环探针 |
 
 这些 Skill 使用 Claude Code 的 `.claude/skills/<名称>/SKILL.md` 格式；MCP 注册使用 `claude mcp add` / `.mcp.json`。没有 Codex 专用配置。
@@ -31,7 +37,7 @@
 .\scripts\Build.ps1
 ```
 
-脚本会构建、运行通用测试，并生成自包含程序到 `artifacts/win-x64/`。已发布的 `server`、`worker`、`demo` 目录包含运行时，运行时无需另外安装 .NET。请保留三者的相邻目录关系；不要只复制一个 exe。
+脚本会构建、运行通用测试，并生成自包含程序到 `artifacts/win-x64/`。生成 `artifacts/windows-cu-win-x64.zip`，其中 `server`、`worker`、`demo`、`wpf`、`tester` 均包含所需运行时。运行整个测试包无需另外安装 .NET 或 SDK。请保留完整目录关系；不要只复制一个 exe。
 
 可直接启动测试客户端：
 
@@ -48,15 +54,9 @@
 claude
 ```
 
-脚本实际调用：
+默认 project scope 在当前目录创建/更新标准 `.mcp.json`，按实际位置写入 exe 路径，并保留其他 MCP 配置、备份旧文件。`local/user` scope 通过 `claude mcp add --transport stdio --scope ...` 注册。目录移动后重新运行配置脚本。
 
-```powershell
-claude mcp add --transport stdio --scope project windows_cu -- "C:\实际项目路径\artifacts\win-x64\server\WindowsComputerUse.Server.exe"
-```
-
-`project` scope 在当前项目配置 `.mcp.json`；`user` scope 为该用户的 Claude Code 配置。此脚本只注册 MCP。项目里的 Skills 随项目被发现；需要在所有项目使用 Skill 时，将两个 Skill 目录复制到 `%USERPROFILE%\.claude\skills\`。
-
-也可参考 `.mcp.json.example`，将实际路径合并到已有 `.mcp.json` 的 `mcpServers`，保留其他服务器配置。`Build.ps1` 会生成包含本机实际路径的 `artifacts/win-x64/claude-mcp.json` 供参考。
+项目 `.claude/skills` 随项目被发现；需要在所有项目使用 Skill 时，将 Skill 目录复制到 `%USERPROFILE%\.claude\skills\`。也可参考 `.mcp.json.example` 手动配置。项目配置写入或 CLI 查询成功不等于模型业务验收。
 
 重新进入 Claude Code 后使用 `/mcp` 检查 `windows_cu` 是否连接，并确认存在：
 
@@ -101,21 +101,17 @@ Claude Code 自身可能要求信任项目级 MCP 配置或批准工具调用，
 dotnet run --project tests/WindowsComputerUse.Tests -c Release
 ```
 
-Windows 示例闭环（需要 .NET 10 SDK 和交互桌面，先构建）：
+Windows 集中测试使用发布包内的独立测试器，需要交互桌面；无需 SDK。源码目录先构建：
 
 ```powershell
 .\scripts\Test-Windows.ps1
 ```
 
-该脚本通过真实 MCP stdio 操作它自行启动的测试客户端，验证两次订单查询、强制 WGC 截图、根据 PNG 颜色定位自绘区域并点击、中文与 emoji 输入、快捷键清空、弹窗关闭、移动后旧坐标拒绝、缩放截图点击、最小化恢复及应用关闭重开。WGC 失败会使测试失败，不会用其他截图后端掩盖结果。报告写入 `artifacts/acceptance/windows-smoke.json`，截图为 `demo-capture.png` 和 `demo-moved-scaled.png`。图像定位使用测试画布的已知颜色，**不是 Claude Code 的视觉理解或自主规划测试**。
+解压包可双击 `Start-Test.cmd`。脚本依次进行文件校验、通用测试、MCP 协议、WinForms 闭环、WPF/UIA/原生鼠标/遮挡与后台焦点采样。结果写入 `test-results/<时间>/`，同时生成可反馈的 ZIP；失败、阻塞和未执行分别记录，重复运行保留旧报告。[测试覆盖与人工步骤](docs/windows-testing.md)。
 
-不操作桌面的协议检查：
+CI 会在含空格和中文的路径解压发布包，用 Windows PowerShell 5.1 运行同一入口，并使用实际 Claude Code CLI 检查配置及 MCP 连接。CLI 健康检查不调用模型。报告保留 14 天，通过后的发布包保留 30 天；已提交的关键证据见 [验收记录](docs/acceptance.md)。
 
-```powershell
-dotnet run --project tests/WindowsComputerUse.Tests -c Release -- --protocol --server artifacts/win-x64/server/WindowsComputerUse.Server.exe
-```
-
-仓库的 `.github/workflows/windows.yml` 在推送 `main`、PR 和手动触发时运行 Windows 构建、通用检查、MCP 协议和严格 WGC 示例测试。报告与截图作为 Actions artifact 保存 14 天，包含测试提交、系统架构和 Windows 会话信息。WGC 或桌面测试失败会使任务失败，不会通过跳过或截图回退标记成功。托管 runner 是否能提供可捕获的交互桌面以实际执行结果为准；CI 通过仍不代表 Claude Code 会话和真实业务客户端验收完成。
+WGC 失败使对应测试失败，不用其他截图后端掩盖。已知颜色检测验证截图/坐标映射，不代表 Claude Code 的视觉理解或自主规划；Windows CI 也不替代真实 Windows 10/11 和业务客户端验收。
 
 ## 已实现的接口与边界
 
@@ -123,6 +119,8 @@ dotnet run --project tests/WindowsComputerUse.Tests -c Release -- --protocol --s
 
 - 窗口引用绑定 HWND、PID 和进程启动时间，窗口重开后重新枚举。
 - 控件与截图引用有效期两分钟；同一窗口执行动作后旧观察失效。
+- 窗口与控件可按多个特征联合筛选；返回切换、选中、展开、只读、数值和滚动状态。条件等待支持文本、存在/消失与控件状态，裁剪观察不能证明控件消失。
+- UIA 支持 invoke、set_value、toggle、select/add_selection/remove_selection、expand/collapse、set_range_value、scroll_pattern、scroll_into_view。
 - 优先使用 UIA pattern，键鼠输入显式属于前台动作。`background_only` 不降级成前台输入。
 - 截图默认 `auto`：先尝试 **WGC（Windows Graphics Capture）**，在不支持、设备创建失败、无新帧超时或一般捕获错误时回退到 `PrintWindow`。返回实际后端及回退原因；不自动激活窗口或转为屏幕截图。
 - `method: wgc` 强制使用 WGC，失败直接返回错误。`print_window` 和 `screen` 可显式选择；后者要求目标已处于前台。

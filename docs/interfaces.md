@@ -6,7 +6,7 @@
 
 ## 参数形状
 
-`list_windows` 接受顶层 `query`（可省略）和 `limit`（默认 50，最大 200）。query 是标题、进程名、可执行路径的子串过滤。自然语言匹配留给 Claude Code。
+`list_windows` 接受顶层 `query`（可省略）、`limit`（默认 50，最大 200）、`selector`。query 是标题、进程名、可执行路径的子串过滤；selector 可联合提供 processName、processId、executablePath、className、titleContains。字符串忽略大小写；除 titleContains 外为精确匹配。返回中包含窗口 className 和 dpi。自然语言匹配留给 Claude Code。
 
 其他桌面工具采用顶层 `request` 对象；`stop` 无参数。以下是示意值，引用必须取自工具返回结果：
 
@@ -15,6 +15,8 @@
 ```
 
 用于 `inspect_window`。深度 0..12，节点数 1..500；树被裁剪时 `truncated=true`。每个节点包含控件名称、类型、AutomationId、状态、物理坐标、支持的 pattern 和可读取文本。文本截断为最多 2000 字符。
+
+可增加 `selector: {"automationId":"OrderNumber","controlType":"Edit"}`。selector 也支持 name、nameContains、className，多个条件取交集。maxNodes 约束实际扫描数量；返回 scannedNodes、filtered。筛选后的父节点可能不在结果列表中。`state` 提供可获取的 toggle、selected、expandCollapse、readOnly、rangeValue/rangeMinimum/rangeMaximum、horizontalScrollPercent/verticalScrollPercent。未暴露模式时省略对应字段，不能把缺失状态当 false。
 
 ```json
 {"request":{"windowRef":"...","method":"auto","maxWidth":1600}}
@@ -46,6 +48,10 @@ WGC 额外返回 `frameSystemRelativeTimeTicks`，表示合成器渲染该帧的
 | invoke | observationId + elementRef | UIA Invoke |
 | set_value | observationId + elementRef + text | UIA Value；空字符串清空 |
 | toggle/select/expand/collapse | observationId + elementRef | 对应 UIA pattern |
+| add_selection/remove_selection | observationId + elementRef | SelectionItem 多选增删，受客户端选择约束 |
+| set_range_value | observationId + elementRef + number | RangeValue；检查只读和上下限 |
+| scroll_pattern | observationId + elementRef + horizontal/vertical | Scroll；各轴 no_amount/small_increment/small_decrement/large_increment/large_decrement，至少一轴非 no_amount |
+| scroll_into_view | observationId + elementRef | ScrollItem；控件必须已被观察到，不实现虚拟化项目的自动实体化 |
 | activate | windowRef | 激活目标窗口 |
 | click/double_click/move | 元素引用或截图 observationId + x/y | 前台鼠标 |
 | drag | 截图 observationId + x/y/toX/toY | 前台短拖拽 |
@@ -56,6 +62,8 @@ WGC 额外返回 `frameSystemRelativeTimeTicks`，表示合成器渲染该帧的
 `mode` 默认 `foreground_allowed`；`background_only` 拒绝上述全部前台动作。
 `button` 为 left/right/middle，默认 left。`observeDelayMs` 0..3000，默认 200，是动作后重新读取 UIA 前的短等待，不代表页面已经稳定。
 
+drag 在单个 SendInput 批次中提交按下、20 个移动和释放，不提供定时悬停/长拖放。这样不在持有按钮期间等待模型或睡眠；需要拖放等待的应用仍需单独适配和验证。
+
 ActionResult 的 `execution=executed` 只表示动作返回；`verification=not_verified` 表示业务尚未验证。后续 observation 或 warnings 说明当前可读状态。
 
 ```json
@@ -63,6 +71,12 @@ ActionResult 的 `execution=executed` 只表示动作返回；`verification=not_
 ```
 
 用于 `wait_for`。匹配当前节点的 name/value/text；timeoutMs 为 100..30000，实际结束还可能包含最后一次 UIA 调用的等待时间。predicateMatched 不证明本次业务操作已经完成。
+
+condition 默认为 text；配合 selector 可等待 exists、absent、enabled、disabled、value_equals、selected、unselected、toggle_on、toggle_off、expanded、collapsed。value_equals 接受空字符串 text；text 条件要求非空。maxDepth 默认 8、maxNodes 默认 300，上限同 inspect_window。等待 absent 时，只要观察被裁剪或有读取失败，就不会报告不存在；到时返回 reason=incomplete_observation。其余未满足条件返回 reason=timeout。
+
+```json
+{"request":{"windowRef":"...","condition":"selected","selector":{"automationId":"Choice02"},"timeoutMs":5000}}
+```
 
 ## 引用生命周期
 
@@ -76,4 +90,4 @@ ActionResult 的 `execution=executed` 只表示动作返回；`verification=not_
 
 ## 当前未覆盖
 
-Windows 10/11 与跨 UI 框架的兼容性验证、窗口生命周期事件、严格用户输入隔离、完整 UIA 模式集合、虚拟化表格查找、剪贴板粘贴、异步业务任务队列及业务审批。Windows Server 2025 的 Demo 原生验证记录见 [验收说明](acceptance.md)。通用的 `wait_for` 不替代具体客户端的业务验证规则。
+Windows 10/11 实机兼容性、Electron/Qt 等框架、窗口生命周期事件、严格用户输入隔离、完整 UIA 模式集合、虚拟化表格查找、剪贴板粘贴、异步业务任务队列及业务审批。WinForms/WPF 原生测试的实际运行状态见 [验收说明](acceptance.md)。通用的 `wait_for` 不替代具体客户端的业务验证规则。

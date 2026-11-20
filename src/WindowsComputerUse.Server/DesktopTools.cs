@@ -9,11 +9,11 @@ namespace WindowsComputerUse.Server;
 [McpServerToolType]
 public sealed class DesktopTools
 {
-    [McpServerTool(Name = "list_windows", ReadOnly = true), Description("List interactive Windows windows with process identities and short-lived windowRef values. query is a case-insensitive substring of title/process/path, not a semantic search. Select by multiple signals; ask the user if candidates remain ambiguous. Re-list after restart or a stale-window error.")]
-    public static async Task<CallToolResult> ListWindows(WorkerClient worker, string? query = null, int limit = 50, CancellationToken cancellationToken = default)
-        => Result(await worker.CallAsync("list_windows", new ListRequest(query, limit), 15000, cancellationToken));
+    [McpServerTool(Name = "list_windows", ReadOnly = true), Description("List interactive Windows windows with process identities and short-lived windowRef values. query is a case-insensitive substring of title/process/path; selector combines processName, processId, executablePath, className and titleContains. Natural-language matching belongs to Claude. Select by multiple signals; ask the user if candidates remain ambiguous. Re-list after restart or a stale-window error.")]
+    public static async Task<CallToolResult> ListWindows(WorkerClient worker, string? query = null, int limit = 50, WindowSelector? selector = null, CancellationToken cancellationToken = default)
+        => Result(await worker.CallAsync("list_windows", new ListRequest(query, limit, selector), 15000, cancellationToken));
 
-    [McpServerTool(Name = "inspect_window", ReadOnly = true), Description("Read a bounded UI Automation control tree. Use the returned observationId and elementRef for UIA actions. References expire after two minutes and are invalidated by an action on that window. Inspect again after changes; controls in truncated/virtualized areas may be absent. Does not activate the window.")]
+    [McpServerTool(Name = "inspect_window", ReadOnly = true), Description("Read a bounded UI Automation control tree, pattern states and values. Optional selector combines automationId, name, nameContains, controlType and className. maxNodes bounds scanned nodes, not just matches; filtered results may omit parents. Use the returned observationId and elementRef for UIA actions. References expire after two minutes and are invalidated by an action on that window. Inspect again after changes; controls in truncated/virtualized areas may be absent. Does not activate the window.")]
     public static async Task<CallToolResult> InspectWindow(WorkerClient worker, InspectRequest request, CancellationToken cancellationToken = default)
         => Result(await worker.CallAsync("inspect_window", request, 15000, cancellationToken));
 
@@ -25,7 +25,7 @@ public sealed class DesktopTools
         return Result(await worker.CallAsync("capture_window", request, 12000, cancellationToken));
     }
 
-    [McpServerTool(Name = "perform_action"), Description("Perform ONE desktop action, then return a fresh UIA observation. UIA actions: invoke, set_value (empty text clears), toggle, select, expand, collapse; require elementRef + observationId from inspect_window. Foreground actions: activate, click, double_click, move, drag, scroll, type_text, press_keys. Pointer actions use an inspected elementRef OR capture image x/y coordinates; drag uses capture x/y/toX/toY. type_text/press_keys optionally focus an inspected elementRef, otherwise use existing focus in the target. mode background_only rejects all foreground input and never silently falls back. Keys is one chord, e.g. [CTRL,A]; scrollDelta is signed wheel units (120 per notch). Result execution=executed means only the action returned; business verification remains not_verified. Reobserve after errors and do not repeat uncertain mutations blindly.")]
+    [McpServerTool(Name = "perform_action"), Description("Perform ONE desktop action, then return a fresh UIA observation. UIA actions: invoke, set_value (empty text clears), toggle, select, add_selection, remove_selection, expand, collapse, set_range_value (number), scroll_pattern (horizontal/vertical), scroll_into_view; require elementRef + observationId from inspect_window. Foreground actions: activate, click, double_click, move, drag, scroll, type_text, press_keys. Pointer actions use an inspected elementRef OR capture image x/y coordinates; drag uses capture x/y/toX/toY. type_text/press_keys optionally focus an inspected elementRef, otherwise use existing focus in the target. mode background_only rejects all foreground input and never silently falls back. Keys is one chord, e.g. [CTRL,A]; scrollDelta is signed wheel units (120 per notch). UIA scroll amounts: no_amount, small_increment/decrement, large_increment/decrement; use at least one axis. Drag is a short atomic input batch, not a timed drag-and-hold. Result execution=executed means only the action returned; business verification remains not_verified. Reobserve after errors and do not repeat uncertain mutations blindly.")]
     public static async Task<CallToolResult> PerformAction(WorkerClient worker, ActionRequest request, CancellationToken cancellationToken = default)
     {
         try { ActionRules.Validate(request); }
@@ -33,9 +33,13 @@ public sealed class DesktopTools
         return Result(await worker.CallAsync("perform_action", request, 20000, cancellationToken));
     }
 
-    [McpServerTool(Name = "wait_for", ReadOnly = true), Description("Poll bounded UIA snapshots for matching name/value/text. This tests a visible predicate, not business freshness or task completion. Check the exact requested identifier and client-specific completion evidence separately. timeoutMs 100..30000; returns the last observation.")]
+    [McpServerTool(Name = "wait_for", ReadOnly = true), Description("Poll bounded UIA snapshots. condition defaults to text (name/value/text). With a selector, also supports exists, absent, enabled, disabled, value_equals, selected, unselected, toggle_on, toggle_off, expanded, collapsed. Missing state is unknown; absent requires a complete non-truncated tree. maxDepth/maxNodes limit each observation. This tests a visible predicate, not business freshness or task completion. Check the exact requested identifier and client-specific completion evidence separately. timeoutMs 100..30000; returns the last observation.")]
     public static async Task<CallToolResult> WaitFor(WorkerClient worker, WaitRequest request, CancellationToken cancellationToken = default)
-        => Result(await worker.CallAsync("wait_for", request, Math.Clamp(request.TimeoutMs, 100, 30000) + 10000, cancellationToken));
+    {
+        try { WaitRules.Validate(request); }
+        catch (DesktopException ex) { return Result(new("", Error: ex.Error)); }
+        return Result(await worker.CallAsync("wait_for", request, request.TimeoutMs + 10000, cancellationToken));
+    }
 
     [McpServerTool(Name = "stop"), Description("Stop the current desktop worker and invalidate its references. Can run while a desktop call is blocked. Already-delivered UI actions are not undone. Does not exit Claude Code; re-list windows to begin another operation.")]
     public static CallToolResult Stop(WorkerClient worker) => Result(new("", Wire.Element(worker.Stop())));

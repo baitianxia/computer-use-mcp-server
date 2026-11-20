@@ -16,7 +16,7 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults:
       run:
         shell: pwsh
@@ -32,24 +32,59 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build, portable checks and Windows x64 publish
+        id: build
         run: |
           New-Item -ItemType Directory -Force artifacts/acceptance | Out-Null
           & ./scripts/Build.ps1 -Runtime win-x64 *>&1 | Tee-Object artifacts/acceptance/windows-build.log
 
-      - name: MCP stdio protocol
+      - name: Test extracted self-contained bundle with Windows PowerShell 5.1
         run: |
-          & dotnet run --project tests/WindowsComputerUse.Tests -c Release --no-build -- --protocol --server artifacts/win-x64/server/WindowsComputerUse.Server.exe --report-dir artifacts/acceptance *>&1 | Tee-Object artifacts/acceptance/windows-protocol.log
-          if ($LASTEXITCODE -ne 0) { throw 'MCP protocol checks failed.' }
+          $bundle = Join-Path $env:RUNNER_TEMP 'Windows CU 测试包'
+          Expand-Archive artifacts/windows-cu-win-x64.zip $bundle
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$bundle/scripts/Test-Windows.ps1" -BundleRoot $bundle -ReportDirectory "$pwd/artifacts/acceptance" *>&1 | Tee-Object artifacts/windows-bundle-run.log
+          if ($LASTEXITCODE -ne 0) { throw 'Self-contained bundle tests failed. See acceptance reports.' }
 
-      - name: Native desktop and strict WGC smoke test
+      - name: Claude Code configuration and live MCP connection (no model call)
+        if: ${{ !cancelled() && steps.build.outcome != 'failure' }}
         run: |
-          & ./scripts/Test-Windows.ps1 -Runtime win-x64 *>&1 | Tee-Object artifacts/acceptance/windows-desktop.log
+          & npm install -g @anthropic-ai/claude-code@latest
+          if ($LASTEXITCODE -ne 0) { throw 'Claude Code CLI installation failed.' }
+          $bundle = Join-Path $env:RUNNER_TEMP 'Windows CU 测试包'
+          $env:CLAUDE_CONFIG_DIR = Join-Path $env:RUNNER_TEMP 'cu-claude-config'
+          $version = (& claude --version | Out-String).Trim()
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$bundle/scripts/Register-ClaudeMcp.ps1" *>&1 | Tee-Object artifacts/acceptance/claude-project-config.log
+          if ($LASTEXITCODE -ne 0) { throw 'Claude project setup failed.' }
+          $config = Get-Content "$bundle/.mcp.json" -Raw | ConvertFrom-Json
+          if ($config.mcpServers.windows_cu.command -ne "$bundle\server\WindowsComputerUse.Server.exe") { throw 'Relocated MCP path mismatch.' }
+          $health = Join-Path $env:RUNNER_TEMP 'cu-claude-health'
+          New-Item -ItemType Directory -Force $health | Out-Null
+          Push-Location $health
+          try {
+            & claude mcp add --transport stdio --scope user windows_cu -- "$bundle/server/WindowsComputerUse.Server.exe"
+            if ($LASTEXITCODE -ne 0) { throw 'Isolated Claude registration failed.' }
+            $output = (& claude mcp get windows_cu 2>&1 | Out-String)
+            $output | Tee-Object "$env:GITHUB_WORKSPACE/artifacts/acceptance/claude-connection.log"
+            $connected = $LASTEXITCODE -eq 0 -and $output -match 'Connected' -and $output -notmatch 'Failed to connect|Pending approval'
+            @{ version = $version; connected = $connected; modelTaskVerified = $false; scope = 'isolated CLI MCP health check; no model authentication or model task' } | ConvertTo-Json | Set-Content "$env:GITHUB_WORKSPACE/artifacts/acceptance/claude-connection.json" -Encoding utf8
+            if (-not $connected) { throw 'Claude Code did not report Connected.' }
+          } finally { Pop-Location }
 
       - name: Upload test evidence even on failure
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: windows-validation-${{ github.sha }}
-          path: artifacts/acceptance/
+          path: |
+            artifacts/acceptance/
+            artifacts/windows-bundle-run.log
           retention-days: 14
           if-no-files-found: warn
+
+      - name: Upload portable Windows test bundle
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-cu-win-x64-${{ github.sha }}
+          path: artifacts/windows-cu-win-x64.zip
+          retention-days: 30
+          compression-level: 0

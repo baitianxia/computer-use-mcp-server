@@ -10,7 +10,7 @@ argument-hint: "[订单号或演示任务]"
 
 - 别名：CU Demo Orders、CuDemo、订单演示客户端。
 - 窗口标题包含 `CU Demo Orders`；进程名通常为 `CuDemo`。同时检查页面内的 `Order number` 输入框和 `Query` 按钮。
-- 客户端已启动时复用现有窗口。未启动时，可通过终端运行当前项目构建的 `artifacts/win-x64/demo/CuDemo.exe`。
+- 客户端已启动时复用现有窗口。未启动时，可通过终端运行当前解压包中的 `demo/CuDemo.exe`，或源码构建目录的 `artifacts/win-x64/demo/CuDemo.exe`；先检查哪个路径存在。
 - 多个实例无法区分时询问用户，不保存固定 HWND/PID。
 
 ## 查询与验证

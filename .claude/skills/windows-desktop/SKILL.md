@@ -8,19 +8,19 @@ argument-hint: "[桌面操作任务]"
 
 ## 工具与观察
 
-- `list_windows` 的 `query` 是标题/进程/路径子串过滤。自然语言匹配由你结合返回信息和客户端 Skill 完成。候选不明确时补充观察或询问用户。
-- `inspect_window` 返回 UIA 树及 `observationId`、`elementRef`。优先使用已暴露的 UIA pattern。
+- `list_windows` 的 `query` 是标题/进程/路径子串过滤。可用 `selector` 联合筛选 processName、processId、executablePath、className、titleContains。自然语言匹配由你结合返回信息和客户端 Skill 完成。候选不明确时补充观察或询问用户。
+- `inspect_window` 返回 UIA 树及 `observationId`、`elementRef`。可用 selector 按 automationId/name/nameContains/controlType/className 联合筛选，仍受 maxDepth/maxNodes 扫描上限约束。filtered 结果可能不包含父节点；truncated 时不能推断未返回的控件不存在。优先使用已暴露的 UIA pattern，并检查 state 中的选中、切换、展开、只读、数值和滚动状态。
 - `capture_window` 默认 `method: auto`，先 WGC，指定错误时回退到 PrintWindow，不会自动激活目标或改为屏幕截图。返回 PNG、图像尺寸、实际 `method`；发生回退时 `fallbackError` 说明原因。显式 `method: wgc` 不回退，可用于 WGC 验收。
 - 视觉动作的 `x/y` 是**返回图片中的像素**，由 MCP 转换为屏幕坐标。必须携带该截图的 `observationId`，不要自行添加窗口边框或缩放系数。
 - `perform_action` 一次执行一个动作并返回新的 UIA 观察。旧控件引用和旧截图引用在动作后失效。后续动作使用新观察中的引用；需要图像时重新截图。
-- `wait_for` 检查可见文本条件，不证明业务结果的新鲜度。
+- `wait_for` 默认检查文本；可配合 selector 等待 exists/absent/enabled/disabled/value_equals/selected/unselected/toggle_on/toggle_off/expanded/collapsed。absent 需要完整观察；incomplete_observation 不能当作已消失。条件匹配不证明业务结果的新鲜度。
 - `stop` 中止当前执行进程。已送达的动作不会撤销；再次操作前重新枚举窗口。
 
 ## 选择动作
 
-UIA 动作 `invoke/set_value/toggle/select/expand/collapse` 必须携带当前 `observationId` 和 `elementRef`。`set_value` 的空字符串表示清空。观察中的 pattern `value/selection_item/expand_collapse` 分别对应这些动作。
+UIA 动作 `invoke/set_value/toggle/select/add_selection/remove_selection/expand/collapse/set_range_value/scroll_pattern/scroll_into_view` 必须携带当前 `observationId` 和 `elementRef`。`set_value` 的空字符串表示清空。根据观察中的 pattern 选择动作；set_range_value 使用 number，先检查上下限和只读状态。scroll_pattern 的 horizontal/vertical 使用 small_increment/small_decrement/large_increment/large_decrement/no_amount，至少一个方向有滚动量；scroll_into_view 需要 scroll_item。
 
-键鼠动作包括 `activate/click/double_click/move/drag/scroll/type_text/press_keys`。`press_keys` 表示一个组合键，例如 `["CTRL","A"]`；`type_text` 使用 Unicode 键盘输入，追加到当前光标位置，不自动清空。可指定观察到的输入框 `elementRef` 来设置焦点。`scrollDelta` 每 120 为一格，负值向下。
+键鼠动作包括 `activate/click/double_click/move/drag/scroll/type_text/press_keys`。`press_keys` 表示一个组合键，例如 `["CTRL","A"]`；`type_text` 使用 Unicode 键盘输入，追加到当前光标位置，不自动清空。可指定观察到的输入框 `elementRef` 来设置焦点。`scrollDelta` 每 120 为一格，负值向下。drag 是按下、移动、释放的一次短输入批次；不支持需要悬停等待的长拖放流程。
 
 视觉点击先调用 `capture_window`，定位图片中的目标，再提交截图编号与坐标。窗口移动、缩放或弹出新页面后重新截图。`capture_geometry_mismatch` 表示后端无法确定截图对应的屏幕矩形，需要重新观察，不自行推算。截图出现黑图、缺失或旧图时，检查实际后端与错误，不猜坐标；若任务允许前台，可先激活窗口再显式使用 `method: screen`。WGC 的新帧时间不证明业务数据是本次查询产生的。
 

@@ -1,5 +1,7 @@
 # Windows 验证记录
 
+2026-11-20 新增的控件状态/筛选/等待、WPF 矩阵、自包含测试包和 Claude CLI 检查正在补齐验证。以下是上一版的已核实历史证据，不能用来证明本轮新增功能已通过。
+
 日期：2026-11-16。被测代码提交：`f7016ca31d4219d6d8f9662b9a852dd57d98d4de`。
 
 [Windows CI 运行](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/43862520352) 已完成，结论为 success。运行环境为 GitHub 托管的 **Windows Server 2025 x64，build 26100**，.NET SDK 10.0.404，交互会话 ID 2。JSON 中的 `Microsoft Windows 10.0.26100` 是运行时版本描述，不能据此称为 Windows 10 客户端验收。

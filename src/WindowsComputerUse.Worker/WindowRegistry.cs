@@ -24,6 +24,7 @@ internal sealed class WindowRegistry
                 if (string.IsNullOrWhiteSpace(info.Title)) return true;
                 if (request.Query is not null && !new[] { info.Title, info.ProcessName, info.ExecutablePath ?? "" }
                     .Any(s => s.Contains(request.Query, StringComparison.OrdinalIgnoreCase))) return true;
+                if (!Selectors.Matches(info, request.Selector)) return true;
                 if (result.Count < request.Limit) result.Add(info);
             }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or ArgumentException or DesktopException) { }
@@ -49,6 +50,8 @@ internal sealed class WindowRegistry
         if (pid == 0 || !Native.GetWindowRect(hwnd, out var rect)) throw new DesktopException("stale_window", "Window disappeared.");
         var text = new StringBuilder(1024);
         Native.GetWindowText(hwnd, text, text.Capacity);
+        var className = new StringBuilder(256);
+        Native.GetClassName(hwnd, className, className.Capacity);
         string name = "", path = "";
         long started = 0;
         using var process = Process.GetProcessById((int)pid);
@@ -59,6 +62,7 @@ internal sealed class WindowRegistry
         var reference = references.FirstOrDefault(p => p.Value == identity).Key;
         if (reference is null) { reference = Guid.NewGuid().ToString("N"); references[reference] = identity; }
         return new(reference, identity, text.ToString(), name, string.IsNullOrEmpty(path) ? null : path,
-            Native.GetWindow(hwnd, 4).ToInt64(), rect.Pixels, Native.IsIconic(hwnd), Native.GetForegroundWindow() == hwnd);
+            Native.GetWindow(hwnd, 4).ToInt64(), rect.Pixels, Native.IsIconic(hwnd), Native.GetForegroundWindow() == hwnd,
+            className.ToString(), Native.GetDpiForWindow(hwnd));
     }
 }

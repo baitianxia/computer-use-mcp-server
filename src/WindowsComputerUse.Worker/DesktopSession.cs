@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Definitions;
 using FlaUI.UIA3;
 using FlaUI.UIA3.Converters;
 using WindowsComputerUse.Core;
@@ -34,10 +35,11 @@ internal sealed class DesktopSession : IDisposable
         var warnings = new List<string>();
         var timer = Stopwatch.StartNew();
         bool truncated = false;
+        int scanned = 0;
         void Visit(AutomationElement element, string? parentRef, int depth)
         {
-            if (elements.Count >= request.MaxNodes || timer.Elapsed > TimeSpan.FromSeconds(6)) { truncated = true; return; }
-            string id = $"e{elements.Count + 1}";
+            if (scanned >= request.MaxNodes || timer.Elapsed > TimeSpan.FromSeconds(6)) { truncated = true; return; }
+            string id = $"e{++scanned}";
             try
             {
                 var p = element.Properties;
@@ -50,13 +52,30 @@ internal sealed class DesktopSession : IDisposable
                 if (element.Patterns.SelectionItem.IsSupported) patterns.Add("selection_item");
                 if (element.Patterns.ExpandCollapse.IsSupported) patterns.Add("expand_collapse");
                 if (element.Patterns.Scroll.IsSupported) patterns.Add("scroll");
+                if (element.Patterns.ScrollItem.IsSupported) patterns.Add("scroll_item");
+                if (element.Patterns.RangeValue.IsSupported) patterns.Add("range_value");
                 if (element.Patterns.Text.IsSupported) patterns.Add("text");
                 bool password = p.IsPassword.ValueOrDefault;
                 string? value = !password && element.Patterns.Value.IsSupported ? Limit(element.Patterns.Value.Pattern.Value.ValueOrDefault) : null;
                 string? text = !password && element.Patterns.Text.IsSupported ? Limit(element.Patterns.Text.Pattern.DocumentRange.GetText(2000)) : null;
-                elements.Add(new(id, parentRef, depth, name, automationId, type, p.ClassName.ValueOrDefault ?? "",
-                    p.IsEnabled.ValueOrDefault, p.IsOffscreen.ValueOrDefault, new(rect.X, rect.Y, rect.Width, rect.Height), patterns.ToArray(), value, text));
-                targets[id] = new(element, name, automationId, type);
+                var state = new ElementState(
+                    Toggle: element.Patterns.Toggle.IsSupported ? element.Patterns.Toggle.Pattern.ToggleState.Value.ToString().ToLowerInvariant() : null,
+                    Selected: element.Patterns.SelectionItem.IsSupported ? element.Patterns.SelectionItem.Pattern.IsSelected.Value : null,
+                    ExpandCollapse: element.Patterns.ExpandCollapse.IsSupported ? element.Patterns.ExpandCollapse.Pattern.ExpandCollapseState.Value.ToString().ToLowerInvariant() : null,
+                    ReadOnly: element.Patterns.Value.IsSupported ? element.Patterns.Value.Pattern.IsReadOnly.Value :
+                        element.Patterns.RangeValue.IsSupported ? element.Patterns.RangeValue.Pattern.IsReadOnly.Value : null,
+                    RangeValue: element.Patterns.RangeValue.IsSupported ? element.Patterns.RangeValue.Pattern.Value.Value : null,
+                    RangeMinimum: element.Patterns.RangeValue.IsSupported ? element.Patterns.RangeValue.Pattern.Minimum.Value : null,
+                    RangeMaximum: element.Patterns.RangeValue.IsSupported ? element.Patterns.RangeValue.Pattern.Maximum.Value : null,
+                    HorizontalScrollPercent: element.Patterns.Scroll.IsSupported ? element.Patterns.Scroll.Pattern.HorizontalScrollPercent.Value : null,
+                    VerticalScrollPercent: element.Patterns.Scroll.IsSupported ? element.Patterns.Scroll.Pattern.VerticalScrollPercent.Value : null);
+                var info = new ElementInfo(id, parentRef, depth, name, automationId, type, p.ClassName.ValueOrDefault ?? "",
+                    p.IsEnabled.ValueOrDefault, p.IsOffscreen.ValueOrDefault, new(rect.X, rect.Y, rect.Width, rect.Height), patterns.ToArray(), value, text, state);
+                if (Selectors.Matches(info, request.Selector))
+                {
+                    elements.Add(info);
+                    targets[id] = new(element, name, automationId, type);
+                }
                 if (depth >= request.MaxDepth)
                 {
                     if (walker.GetFirstChild(element) is not null) truncated = true;
@@ -65,7 +84,7 @@ internal sealed class DesktopSession : IDisposable
                 var child = walker.GetFirstChild(element);
                 while (child is not null)
                 {
-                    if (elements.Count >= request.MaxNodes || timer.Elapsed > TimeSpan.FromSeconds(6)) { truncated = true; break; }
+                    if (scanned >= request.MaxNodes || timer.Elapsed > TimeSpan.FromSeconds(6)) { truncated = true; break; }
                     Visit(child, id, depth + 1);
                     child = walker.GetNextSibling(child);
                 }
@@ -77,9 +96,9 @@ internal sealed class DesktopSession : IDisposable
             }
         }
         Visit(root, null, 0);
-        if (elements.Count == 0) throw new DesktopException("uia_unavailable", "No readable controls returned. Try capture_window, or inspect permissions and client accessibility.");
+        if (elements.Count == 0 && request.Selector is null) throw new DesktopException("uia_unavailable", "No readable controls returned. Try capture_window, or inspect permissions and client accessibility.");
         string observationId = observations.Add(window.WindowRef, targets);
-        return new(observationId, window.WindowRef, DateTimeOffset.UtcNow, window, elements, truncated, warnings.ToArray());
+        return new(observationId, window.WindowRef, DateTimeOffset.UtcNow, window, elements, truncated, warnings.ToArray(), scanned, request.Selector is not null);
     }
 
     public (CaptureInfo Info, string Image) Capture(CaptureRequest request)
@@ -119,19 +138,18 @@ internal sealed class DesktopSession : IDisposable
 
     public object Wait(WaitRequest request)
     {
-        if (request.TimeoutMs is < 100 or > 30_000 || string.IsNullOrEmpty(request.Text))
-            throw new DesktopException("invalid_argument", "wait_for requires nonempty text and timeoutMs in 100..30000.");
+        WaitRules.Validate(request);
         var timer = Stopwatch.StartNew();
         Observation? last = null;
         do
         {
-            last = Inspect(new(request.WindowRef));
-            bool matched = last.Elements.Any(e => new[] { e.Name, e.Value, e.Text }.Any(s => s is not null &&
-                (request.Exact ? string.Equals(s, request.Text, StringComparison.Ordinal) : s.Contains(request.Text, StringComparison.Ordinal))));
+            last = Inspect(new(request.WindowRef, request.MaxDepth, request.MaxNodes, request.Selector));
+            bool matched = WaitRules.Matches(last, request);
             if (matched) return new { predicateMatched = true, businessVerification = "not_verified", observation = last };
             Thread.Sleep(200);
         } while (timer.ElapsedMilliseconds < request.TimeoutMs);
-        return new { predicateMatched = false, businessVerification = "not_verified", reason = "timeout", observation = last };
+        return new { predicateMatched = false, businessVerification = "not_verified",
+            reason = request.Condition == "absent" && last?.Truncated == true ? "incomplete_observation" : "timeout", observation = last };
     }
 
     private AutomationElement ResolveElement(ActionRequest request)
@@ -158,11 +176,29 @@ internal sealed class DesktopSession : IDisposable
                 element.Patterns.Value.Pattern.SetValue(request.Text!); break;
             case "toggle" when element.Patterns.Toggle.IsSupported: element.Patterns.Toggle.Pattern.Toggle(); break;
             case "select" when element.Patterns.SelectionItem.IsSupported: element.Patterns.SelectionItem.Pattern.Select(); break;
+            case "add_selection" when element.Patterns.SelectionItem.IsSupported: element.Patterns.SelectionItem.Pattern.AddToSelection(); break;
+            case "remove_selection" when element.Patterns.SelectionItem.IsSupported: element.Patterns.SelectionItem.Pattern.RemoveFromSelection(); break;
             case "expand" when element.Patterns.ExpandCollapse.IsSupported: element.Patterns.ExpandCollapse.Pattern.Expand(); break;
             case "collapse" when element.Patterns.ExpandCollapse.IsSupported: element.Patterns.ExpandCollapse.Pattern.Collapse(); break;
+            case "set_range_value" when element.Patterns.RangeValue.IsSupported:
+                var range = element.Patterns.RangeValue.Pattern;
+                if (range.IsReadOnly.Value) throw new DesktopException("read_only", "RangeValue is read-only.");
+                if (request.Number < range.Minimum.Value || request.Number > range.Maximum.Value)
+                    throw new DesktopException("invalid_argument", "Number is outside the control's reported range.");
+                range.SetValue(request.Number!.Value); break;
+            case "scroll_pattern" when element.Patterns.Scroll.IsSupported:
+                element.Patterns.Scroll.Pattern.Scroll(ScrollAmountOf(request.Horizontal), ScrollAmountOf(request.Vertical)); break;
+            case "scroll_into_view" when element.Patterns.ScrollItem.IsSupported: element.Patterns.ScrollItem.Pattern.ScrollIntoView(); break;
             default: throw new DesktopException("pattern_unsupported", "This control does not expose the requested pattern. Inspect/capture again and choose a supported action.");
         }
     }
+
+    private static ScrollAmount ScrollAmountOf(string value) => value switch
+    {
+        "small_increment" => ScrollAmount.SmallIncrement, "small_decrement" => ScrollAmount.SmallDecrement,
+        "large_increment" => ScrollAmount.LargeIncrement, "large_decrement" => ScrollAmount.LargeDecrement,
+        _ => ScrollAmount.NoAmount
+    };
 
     private void Input(WindowInfo window, ActionRequest request)
     {
