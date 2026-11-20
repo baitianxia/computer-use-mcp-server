@@ -1,6 +1,34 @@
 # Windows 验证记录
 
-## 最新更正：用户级安装后正常使用
+## 当前验证：人工辅导、经验保存与企业微信入口
+
+2026-11-20，被测代码 `3a5007379b7e388e3f834475447432a46345cc8d` 的 [Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44707533532) 完成并通过。环境为 **Windows Server 2025 x64 / build 26100**，PowerShell 5.1.26100.33648，Claude Code 2.1.329。系统报告中的 Windows NT 10.0 不代表 Windows 10 客户端验收。
+
+本轮自动化及交付核验共 7 类：已完成 7；正在执行、待执行、阻塞、失败均为 0。在下表限定范围内均已验证，真实模型/人工/企业微信验收仍未执行。
+
+| 项目 | 执行状态 | 验证状态 | 本轮证据 |
+|---|---|---|---|
+| 构建及通用逻辑 | 已完成 | 已验证 | 0 警告、0 错误；35 项通用检查通过 |
+| MCP 接口 | 已完成 | 已验证 | 12 项协议检查；9 个工具 schema 可通过标准 stdio 发现 |
+| 人工辅导工具链 | 已完成 | 已验证 | 35 项：文字说明、动作暂停、示范记录、弹窗、无关窗口排除、本机停止、限时、恢复、重定位、草稿/Skill 保存和人工图像确认来源 |
+| 原有桌面功能回归 | 已完成 | 已验证 | WinForms 42 项、WPF 30 项；含公共协议重复项 |
+| Claude Code 安装 | 已完成 | 已验证 | 四个内置 Skills 安装；重复安装保留无关及既有学习 Skill；移走解压目录后仍 Connected；没有模型调用 |
+| Windows 自包含包 | 已完成 | 已验证 | 在中文/空格路径通过 PowerShell 5.1 集中测试；下载后再次校验全部 1428 个 manifest 文件 |
+| 证据留存与图像核验 | 已完成 | 已验证 | 原始 JSON、输入事件、采样帧、生成 Skill 和哈希已保留；核对 A1001→A1002 查询变化，截图 OCR 与 UIA 中的结果一致 |
+
+6 个集中套件为 preflight、portable、protocol、winforms、guidance、wpf-matrix，均 passed；安装/CLI 健康检查位于后续独立步骤。不能将各组检查数相加当成独立业务场景。
+
+辅导示范由测试程序注入鼠标/键盘，轨迹明确标 injected。记录 12 个事件、6 个采样帧、0 个丢失事件。短暂弹窗的 `demo-0005.json` 保留 UIA 与 `Capture: The parameter is incorrect` 错误，未生成 PNG；其关闭按键没有 afterFrame。这证明采样存在缺口，**不能表述成完整录像或每帧截图均成功**。最终 resume 重新观察并取得截图，结果核验另行执行。
+
+保存的经验文件符合 Claude Code 个人 Skill 的 frontmatter/辅助文件布局。UI 条件匹配和人工图像确认分别记录来源；`independentReplayVerified` 不被置为 true。测试中的 user note 是测试夹具构造，报告明确保留 `actualHumanDemonstrationVerified: false` 和 `claudeModelVerified: false`。
+
+企业微信首期范围已经确定为 **Windows 10 x64 上和指定联系人聊天**。已提供 wecom-desktop 初始 Skill 和 windows-guide，现场验证前不能声称已适配真实企业微信 UI、已发出真实消息或模型已学会操作。实际客户端版本、登录账号、测试联系人/消息及新会话复用须在目标电脑核验。
+
+本轮证据：[统一报告](validation/2026-11-20-human-guidance/summary.json)、[35 项辅导检查](validation/2026-11-20-human-guidance/windows-guidance.json)、[原始示范轨迹](validation/2026-11-20-human-guidance/demonstration/events.jsonl)、[图像缺口记录](validation/2026-11-20-human-guidance/demonstration/frames/demo-0005.json)、[实际生成的 Skill](validation/2026-11-20-human-guidance/generated-client-skill/SKILL.md)、[CLI 连接](validation/2026-11-20-human-guidance/claude-connection.json)、[来源与逐文件哈希](validation/2026-11-20-human-guidance/provenance.json)。
+
+测试包 `windows-cu-win-x64.zip`：259,693,381 bytes；SHA-256 `c52404b4094e0d452f93861b25b4023f103338ed86664c50c2e754e59c824dd3`。本轮 artifact id 为 14615404237，保留时间见 Actions。源代码之后若只补充本验收文档，测试包仍以被测代码 `3a50073` 为准。
+
+## 此前用户级安装基线
 
 2026-11-20，代码 `72cff221847c8b395f87ade4fb65d6e2c88b365a` 的 [Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44696758984) 已完成并通过。
 
@@ -79,7 +107,7 @@ WPF 测试实际验证：
 |---|---|---|---|
 | Windows 10/11、更多 UI 框架 | 阻塞 | 未验证 | 本环境只有 macOS 和 Server 2025 CI；需要目标 Windows 10/11 电脑及 Electron/Qt 等实际应用 |
 | Claude 模型执行、Skill 自动匹配与新会话复用 | 阻塞 | 未验证 | CLI 连接已验证；尚无已登录并授权模型的 Windows Claude 会话 |
-| 真实业务客户端及业务 Skill | 阻塞 | 未验证 | 首个真实客户端和代表性业务任务尚未指定 |
+| 真实业务客户端及业务 Skill | 阻塞 | 未验证 | 已指定企业微信联系人聊天，初始 Skill 已写入；尚缺 Windows 10 企业微信登录环境和真实任务验证 |
 | 多显示器、不同 DPI、HDR、捕获时持续缩放 | 待执行 | 未验证 | 当前只验证单屏 96 DPI、缩放输出、移动/调整大小后的坐标失效与遮挡 |
 | 人同时操作键鼠的后台共存 | 待执行 | 未验证 | 当前为测试程序占据前台与焦点采样，尚未执行真实人机并发输入验收 |
 

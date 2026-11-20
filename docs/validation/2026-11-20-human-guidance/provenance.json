@@ -1,0 +1,178 @@
+{
+  "sourceCommit": "3a5007379b7e388e3f834475447432a46345cc8d",
+  "runId": 44707533532,
+  "jobId": 136190746169,
+  "runUrl": "https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44707533532",
+  "evidenceArtifact": {
+    "id": 14615449049,
+    "sha256": "548e3abb53e18c0f3facdd9712c5e45307a10e2844fa5d21c3000ee8d07ee945"
+  },
+  "bundleArtifact": {
+    "id": 14615404237,
+    "sha256": "a8b4e53587f4c1b41db208524d1ef2df7786778c4acc1e36beb94b748981110d"
+  },
+  "windowsPackage": {
+    "sha256": "c52404b4094e0d452f93861b25b4023f103338ed86664c50c2e754e59c824dd3",
+    "bytes": 259693381,
+    "manifestFilesVerified": 1428
+  },
+  "limits": [
+    "Windows Server 2025 x64; Windows 10 workstation unverified",
+    "Synthetic SendInput demonstration, not a human demonstration",
+    "No Claude model calls or real WeCom messages",
+    "demo-0005 retained UIA and capture error; no PNG for the short-lived dialog",
+    "Guidance event target association is sampled and best-effort"
+  ],
+  "files": [
+    {
+      "path": "claude-connection.json",
+      "bytes": 393,
+      "sha256": "bc2ce04977b5b4a4b6c753e931f267506d38e496bd8637685bdacd769518655a"
+    },
+    {
+      "path": "claude-connection.txt",
+      "bytes": 326,
+      "sha256": "ec406e6269a673e81b510215536b63ec4cd5de52dc3cec00c4b24c05970ec6d6"
+    },
+    {
+      "path": "claude-install.txt",
+      "bytes": 423,
+      "sha256": "7c365ea89386218472eae525779e3f144d47d5f90beca2cf452abe9fa4a44773"
+    },
+    {
+      "path": "claude-reinstall.txt",
+      "bytes": 423,
+      "sha256": "7c365ea89386218472eae525779e3f144d47d5f90beca2cf452abe9fa4a44773"
+    },
+    {
+      "path": "demonstration/events.jsonl",
+      "bytes": 3419,
+      "sha256": "51dea6abeff2f8b6d378da71a6c5260f532360e4b5ef630cf5d6c4e5db13f0ff"
+    },
+    {
+      "path": "demonstration/frames/demo-0001.json",
+      "bytes": 6985,
+      "sha256": "cce42a4967ea8e5d703f025201fde12a22dc76f716223cdb4b8acfc0281d91b7"
+    },
+    {
+      "path": "demonstration/frames/demo-0001.png",
+      "bytes": 14981,
+      "sha256": "a42ef1eaf958d5b0f6cbd8d0cc5dc4cba8ef51b668a6ac490b024fe97c4252e3"
+    },
+    {
+      "path": "demonstration/frames/demo-0002.json",
+      "bytes": 6985,
+      "sha256": "7bab4efeb59ae79589cd752c44759814427beb213899add378788e0790bc6f45"
+    },
+    {
+      "path": "demonstration/frames/demo-0002.png",
+      "bytes": 15044,
+      "sha256": "9f8552e06b5e18d5d453b20d0fe5ee2b0d90641028f538f209fa0c556aa155b7"
+    },
+    {
+      "path": "demonstration/frames/demo-0003.json",
+      "bytes": 6982,
+      "sha256": "b8c5fb5d239b031dcab5dc876b72018f6787072f2d9bea70284a98fc00bef5df"
+    },
+    {
+      "path": "demonstration/frames/demo-0003.png",
+      "bytes": 15036,
+      "sha256": "25fce23f8532450a99060260fafe60def56b8eceaa1f226d163ac1a76f8fdbf1"
+    },
+    {
+      "path": "demonstration/frames/demo-0004.json",
+      "bytes": 8284,
+      "sha256": "ed2c19335324760fe28904dac8c90447d3bd0efb35db91e4c1bfc3573cf32402"
+    },
+    {
+      "path": "demonstration/frames/demo-0004.png",
+      "bytes": 15206,
+      "sha256": "a4cd23748b1d9c07200903f703ac92e714e8f7fc5d19ccecc1b721eeada41726"
+    },
+    {
+      "path": "demonstration/frames/demo-0005.json",
+      "bytes": 2056,
+      "sha256": "52a206872d19e302e8205ba46e223a801e8953002ce56855df7bc81d6d48a4bd"
+    },
+    {
+      "path": "demonstration/frames/demo-0006.json",
+      "bytes": 6987,
+      "sha256": "e0095b886b0a846a4dcaa5594773f1991bc8330d3e11d3e52e2a69de3ff50ea4"
+    },
+    {
+      "path": "demonstration/frames/demo-0006.png",
+      "bytes": 15322,
+      "sha256": "3cf33c65f520d2377ab0a4dca06dda1a42ed322b93c75cffdd349ac40425e35b"
+    },
+    {
+      "path": "demonstration/frames/resume-9228fac6.json",
+      "bytes": 6990,
+      "sha256": "4f700eb3cc6cfbd1b7c2aecf13bddf22c197bf1fddbf71a4cbd5d721cb68a3ef"
+    },
+    {
+      "path": "demonstration/frames/resume-9228fac6.png",
+      "bytes": 15206,
+      "sha256": "a4cd23748b1d9c07200903f703ac92e714e8f7fc5d19ccecc1b721eeada41726"
+    },
+    {
+      "path": "demonstration/lesson-draft.json",
+      "bytes": 1184,
+      "sha256": "4c7c533064dd0ec7802adef52a5e4d143050886c7fd2aa4b0258f43aac0698ff"
+    },
+    {
+      "path": "demonstration/recording-status.json",
+      "bytes": 152,
+      "sha256": "6fd15a09b007bbc262eeec6e7e1eb2f85c1a4c8e73fb187c7b2ca671e21d199c"
+    },
+    {
+      "path": "demonstration/session.json",
+      "bytes": 813,
+      "sha256": "18d7a092d153ea5d2269778d21698fb69a8b945152047bcffc1f8abc724923bd"
+    },
+    {
+      "path": "generated-client-skill/SKILL.md",
+      "bytes": 1407,
+      "sha256": "6966b1e6b05f2f853e6361eba8919ca9d80e028730dfc89586ca47cd37466c6c"
+    },
+    {
+      "path": "generated-client-skill/lessons/0bd43c72b78b411f858bc76cfe243ae4.md",
+      "bytes": 2197,
+      "sha256": "6b338f0fca87ab38a1a90c2de92c8895d717b1d4af966e1ecb4f448c88e61ba3"
+    },
+    {
+      "path": "generated-client-skill/lessons/60153eb2f8b8412dbd8c2c8179307ed5.md",
+      "bytes": 1848,
+      "sha256": "b655b4d006620e453ac264667e8c541c09df7d14dd73062f51d8f4aa309ec9f3"
+    },
+    {
+      "path": "generated-client-skill/windows-cu-lessons.json",
+      "bytes": 5024,
+      "sha256": "026d8b5eaef7de7cff4b1ffc0d779ab86081639f106ec0e565289393c9b7398a"
+    },
+    {
+      "path": "protocol-smoke.json",
+      "bytes": 2377,
+      "sha256": "352738a4dfebcf910a609c94a923e905875a5085011b7fec3f1124549d948ef5"
+    },
+    {
+      "path": "summary.json",
+      "bytes": 4085,
+      "sha256": "145649c1e673987b34feaa4cb795e3a1ea4532aa8b4ffdbb50e99bb622c71b7d"
+    },
+    {
+      "path": "windows-guidance.json",
+      "bytes": 7815,
+      "sha256": "80e07fa2788e3f2ed310b5e7df0b638075838003168afe39cffc44b87efe2110"
+    },
+    {
+      "path": "windows-matrix.json",
+      "bytes": 6070,
+      "sha256": "196b359a9433b1c607d8cc830006760b0e7e3f2b5831588eba20fbca22ee3a8e"
+    },
+    {
+      "path": "windows-smoke.json",
+      "bytes": 7100,
+      "sha256": "8df9522b7a694a601426c4dc5aeeaec9a82d07f1c8b97d5d49c2156313bdaa71"
+    }
+  ]
+}

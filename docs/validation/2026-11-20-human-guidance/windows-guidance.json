@@ -1,0 +1,190 @@
+{
+  "sourceCommit": "3a5007379b7e388e3f834475447432a46345cc8d",
+  "passed": true,
+  "scope": "native coaching tools, injected demonstration, persistence and personal Skill publication",
+  "checks": [
+    {
+      "name": "text guidance starts with model actions paused",
+      "passed": true,
+      "evidence": "0bd43c72b78b411f858bc76cfe243ae4"
+    },
+    {
+      "name": "Human handoff rejects model input",
+      "passed": true,
+      "evidence": "no foreground action delivered"
+    },
+    {
+      "name": "Actual user instruction is durable",
+      "passed": true,
+      "evidence": "user-labelled note persisted"
+    },
+    {
+      "name": "Guidance evidence returns real MCP image content",
+      "passed": true,
+      "evidence": "before snapshot PNG"
+    },
+    {
+      "name": "Unverified coaching remains an uninstalled draft",
+      "passed": true,
+      "evidence": "draft retained on disk"
+    },
+    {
+      "name": "Resume returns fresh UI and original task",
+      "passed": true,
+      "evidence": "fresh resume observation, retained task"
+    },
+    {
+      "name": "Wrong business identifier cannot publish a verified Skill",
+      "passed": true,
+      "evidence": "incorrect result check rejected"
+    },
+    {
+      "name": "Fresh result checks publish a personal Claude Skill",
+      "passed": true,
+      "evidence": "D:\\a\\computer-use-mcp-server\\computer-use-mcp-server\\artifacts\\acceptance\\guidance-claude\\skills\\windows-client-guidance-demo\\SKILL.md"
+    },
+    {
+      "name": "Published Skill contains reusable semantic instructions",
+      "passed": true,
+      "evidence": "parameterized workflow and provenance"
+    },
+    {
+      "name": "demonstration guidance starts with model actions paused",
+      "passed": true,
+      "evidence": "60153eb2f8b8412dbd8c2c8179307ed5"
+    },
+    {
+      "name": "Demonstrated input reaches the client while model input is paused",
+      "passed": true,
+      "evidence": "test harness SendInput; tagged injected in trace"
+    },
+    {
+      "name": "Local stop shortcut stops recording without resuming model control",
+      "passed": true,
+      "evidence": "{\u0022session\u0022:{\u0022id\u0022:\u002260153eb2f8b8412dbd8c2c8179307ed5\u0022,\u0022task\u0022:\u0022\\u67E5\\u8BE2\\u8BA2\\u5355\\u5E76\\u6838\\u5BF9\\u7ED3\\u679C\u0022,\u0022blockedReason\u0022:\u0022\\u4E0D\\u77E5\\u9053\\u5982\\u4F55\\u63D0\\u4EA4\\u8BA2\\u5355\\u53F7\u0022,\u0022mode\u0022:\u0022demonstration\u0022,\u0022state\u0022:\u0022waiting_for_user\u0022,\u0022window\u0022:{\u0022windowRef\u0022:\u0022e6bd932d9acb4a509d0abde0d847f772\u0022,\u0022identity\u0022:{\u0022handle\u0022:524318,\u0022processId\u0022:1484,\u0022processStartedUtcTicks\u0022:639307623392730727},\u0022title\u0022:\u0022CU Demo Orders\u0022,\u0022processName\u0022:\u0022CuDemo\u0022,\u0022executablePath\u0022:\u0022D:\\\\a\\\\_temp\\\\Windows CU \\u6D4B\\u8BD5\\u5305\\\\demo\\\\CuDemo.exe\u0022,\u0022ownerHandle\u0022:0,\u0022bounds\u0022:{\u0022x\u0022:124,\u0022y\u0022:90,\u0022width\u0022:776,\u0022height\u0022:539},\u0022minimized\u0022:false,\u0022foreground\u0022:true,\u0022className\u0022:\u0022WindowsForms10.Window.8.app.0.2360855_r3_ad1\u0022,\u0022dpi\u0022:96},\u0022startedAt\u0022:\u00222026-11-20T09:05:42.6945254\\u002B00:00\u0022,\u0022notes\u0022:[]},\u0022active\u0022:true,\u0022recorder\u0022:{\u0022sessionId\u0022:\u002260153eb2f8b8412dbd8c2c8179307ed5\u0022,\u0022recording\u0022:false,\u0022reason\u0022:\u0022local_stop_shortcut\u0022,\u0022events\u0022:12,\u0022frames\u0022:6,\u0022droppedEvents\u0022:0,\u0022warnings\u0022:[]}}"
+    },
+    {
+      "name": "Resume returns fresh UI and original task",
+      "passed": true,
+      "evidence": "fresh resume observation, retained task"
+    },
+    {
+      "name": "Demonstration records scoped mouse and key events",
+      "passed": true,
+      "evidence": "12 recorded events"
+    },
+    {
+      "name": "Demonstration includes owned dialog input",
+      "passed": true,
+      "evidence": "owned modal dialog entered with real window identity"
+    },
+    {
+      "name": "Unrelated client input is excluded",
+      "passed": true,
+      "evidence": "second process was clicked and typed into"
+    },
+    {
+      "name": "Synthetic test input is labelled and text keystrokes are not stored",
+      "passed": true,
+      "evidence": "result values may appear in scoped UIA/screenshots"
+    },
+    {
+      "name": "Semantic target and before/after evidence retained",
+      "passed": true,
+      "evidence": "best-effort mapping from prior UIA sample"
+    },
+    {
+      "name": "Repeated coaching accumulates lessons without replacing earlier guidance",
+      "passed": true,
+      "evidence": "two sessions retained"
+    },
+    {
+      "name": "text guidance starts with model actions paused",
+      "passed": true,
+      "evidence": "a54deedd38ea42208714c11d06b75ec5"
+    },
+    {
+      "name": "MCP restart recovers interrupted coaching",
+      "passed": true,
+      "evidence": "durable session and action barrier restored"
+    },
+    {
+      "name": "Restart cannot silently reclaim human control",
+      "passed": true,
+      "evidence": "old references not acted on"
+    },
+    {
+      "name": "Resume returns fresh UI and original task",
+      "passed": true,
+      "evidence": "fresh resume observation, retained task"
+    },
+    {
+      "name": "Guidance and installed Skills survive a new MCP session",
+      "passed": true,
+      "evidence": "file persistence; model Skill activation is a separate manual test"
+    },
+    {
+      "name": "text guidance starts with model actions paused",
+      "passed": true,
+      "evidence": "cbe6110892eb4f66a5fa158e59aa80ff"
+    },
+    {
+      "name": "Closed target keeps handoff paused pending relocation",
+      "passed": true,
+      "evidence": "no replay against stale window"
+    },
+    {
+      "name": "Same client can be explicitly relocated after restart",
+      "passed": true,
+      "evidence": "fresh process identity"
+    },
+    {
+      "name": "text guidance starts with model actions paused",
+      "passed": true,
+      "evidence": "bad8892173b6481fa88a14af2bee84f1"
+    },
+    {
+      "name": "Cancel preserves guidance evidence and releases handoff",
+      "passed": true,
+      "evidence": "no deletion or rollback implied"
+    },
+    {
+      "name": "text guidance starts with model actions paused",
+      "passed": true,
+      "evidence": "4af96b4476b6431a8d2df9575e3450b8"
+    },
+    {
+      "name": "Resume returns fresh UI and original task",
+      "passed": true,
+      "evidence": "fresh resume observation, retained task"
+    },
+    {
+      "name": "Checkpoint captures current visual result",
+      "passed": true,
+      "evidence": "fresh image for visual-only confirmation"
+    },
+    {
+      "name": "Earlier instruction cannot masquerade as result confirmation",
+      "passed": true,
+      "evidence": "confirmation must follow result screenshot"
+    },
+    {
+      "name": "Visual-only publication retains explicit human confirmation source",
+      "passed": true,
+      "evidence": "protocol fixture models a user confirmation; actual human test still required"
+    },
+    {
+      "name": "Recording time limit stops capture but retains handoff",
+      "passed": true,
+      "evidence": "10 second cap; no automatic resume"
+    }
+  ],
+  "actualHumanDemonstrationVerified": false,
+  "claudeModelVerified": false,
+  "remaining": [
+    "Actual human coaching in Claude Code",
+    "Model synthesis and automatic Skill matching",
+    "Real client workflow and independent replay",
+    "Windows 10/11 workstation input hooks"
+  ]
+}

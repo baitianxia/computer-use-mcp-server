@@ -7,3 +7,5 @@
 # Preserve exported validation reports byte-for-byte for their recorded SHA-256.
 docs/validation/**/*.json -text whitespace=cr-at-eol
 docs/validation/**/*.txt -text whitespace=cr-at-eol,-blank-at-eof
+docs/validation/**/*.jsonl -text whitespace=cr-at-eol,-blank-at-eof
+docs/validation/**/*.md -text whitespace=cr-at-eol,-blank-at-eof

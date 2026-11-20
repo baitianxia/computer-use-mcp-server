@@ -1,0 +1,10 @@
+windows_cu:
+  Scope: User config (available in all your projects)
+  Status: √ Connected
+  Type: stdio
+  Command: D:\a\_temp\Windows CU 安装目录\versions\3a5007379b7e-86c035dacf9c5872\server\WindowsComputerUse.Server.exe
+  Args:
+  Environment:
+
+To remove this server, run: claude mcp remove windows_cu -s user
+

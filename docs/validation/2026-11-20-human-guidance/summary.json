@@ -1,0 +1,71 @@
+{
+    "timestamp":  "2026-11-20T09:07:10.3139130Z",
+    "sourceCommit":  "3a5007379b7e388e3f834475447432a46345cc8d",
+    "environment":  {
+                        "userInteractive":  true,
+                        "claudeVersion":  null,
+                        "processArchitecture":  "AMD64",
+                        "powerShell":  "5.1.26100.33822",
+                        "sessionId":  2,
+                        "os":  "Microsoft Windows NT 10.0.26100.0"
+                    },
+    "automated":  {
+                      "passed":  6,
+                      "failed":  0,
+                      "notRun":  0,
+                      "total":  6,
+                      "results":  [
+                                      {
+                                          "name":  "preflight",
+                                          "status":  "passed",
+                                          "error":  null
+                                      },
+                                      {
+                                          "name":  "portable",
+                                          "status":  "passed",
+                                          "exitCode":  0,
+                                          "elapsedMs":  1747,
+                                          "error":  null
+                                      },
+                                      {
+                                          "name":  "protocol",
+                                          "status":  "passed",
+                                          "exitCode":  0,
+                                          "elapsedMs":  806,
+                                          "error":  null
+                                      },
+                                      {
+                                          "name":  "winforms",
+                                          "status":  "passed",
+                                          "exitCode":  0,
+                                          "elapsedMs":  9567,
+                                          "error":  null
+                                      },
+                                      {
+                                          "name":  "guidance",
+                                          "status":  "passed",
+                                          "exitCode":  0,
+                                          "elapsedMs":  25378,
+                                          "error":  null
+                                      },
+                                      {
+                                          "name":  "wpf-matrix",
+                                          "status":  "passed",
+                                          "exitCode":  0,
+                                          "elapsedMs":  65777,
+                                          "error":  null
+                                      }
+                                  ],
+                      "blocked":  0
+                  },
+    "claudeModelVerified":  false,
+    "realClientVerified":  false,
+    "manualNotRun":  [
+                         "Claude Code: run Setup-Claude.cmd, then /mcp and /windows-desktop. Verify one natural-language task in a new session.",
+                         "Human coaching: in Claude Code, demonstrate a blocked step, resume, save a verified client Skill, then invoke it in a new session.",
+                         "Windows 10 x64 and WeCom: find a named contact, verify identity, send the explicitly requested test message and verify the new outgoing message.",
+                         "Real client: identify the app, complete one representative task, verify the requested identifier and final business data.",
+                         "Display coverage: multiple monitors/DPI, HDR and resizing while capture is active require the corresponding hardware/manual checks.",
+                         "Background coexistence: sampled focus checks do not prove uninterrupted operation while a human is using mouse/keyboard."
+                     ]
+}

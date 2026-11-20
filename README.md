@@ -2,9 +2,9 @@
 
 本地功能验证版：让 **Claude Code CLI** 通过标准 MCP stdio 工具发现 Windows 窗口、读取 UI Automation、截图并执行桌面动作。推理和任务规划由 Claude Code 负责；MCP 不调用模型。
 
-**既有版本验证基线（不含新增人工辅导）：** 2026-11-20 在 **Windows Server 2025 x64** 上完成最终测试：通用 27 项、MCP 协议 9 项、WinForms 39 项、WPF 30 项通过；Claude Code 2.1.329 的用户级安装、重复安装及移走解压目录后的跨目录 MCP 连接通过；个人 Skills 文件安装已检查，模型触发尚未验证。发布包在含中文和空格的路径中由 PowerShell 5.1 运行。Windows 10/11 实机、Claude 模型任务及真实业务客户端仍未验证。[本轮验收记录](docs/acceptance.md)、[通过的 Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44696758984)。
+**当前验证范围：** 2026-11-20，代码 `3a50073` 在 **Windows Server 2025 x64** 通过通用 35 项、MCP 协议 12 项、WinForms 42 项、人工辅导 35 项、WPF 30 项检查（分组存在重复检查）；6 个自动测试套件均通过。Claude Code 2.1.329 的用户级安装、重复安装、四个内置 Skills 安装和跨目录 MCP 连接通过。**Windows 10 x64 实机、真实人工辅导的模型任务及企业微信聊天仍未验证。** [验收记录](docs/acceptance.md)、[本轮 Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44707533532)。
 
-本轮补齐控件筛选与状态、条件等待、多选/滑块/控件滚动、WPF 与原生键鼠矩阵，以及自包含集中测试包。Skill 和 MCP 均面向 Claude Code。
+提供控件筛选与状态、条件等待、多选/滑块/控件滚动、WPF 与原生键鼠矩阵，以及自包含集中测试包。Skill 和 MCP 均面向 Claude Code。
 
 新增人工辅导：模型卡住后交出操作权，接收文字说明或短段示范，恢复后依据新界面继续任务，并将验证后的方法保存为个人客户端 Skill。首个业务目标为 Windows 10 x64 上的企业微信联系人聊天，真实客户端验收独立于通用工具测试。[人工辅导说明](docs/human-guidance.md)。
 
@@ -104,7 +104,7 @@ Windows 集中测试使用发布包内的独立测试器，需要交互桌面；
 .\scripts\Test-Windows.ps1
 ```
 
-解压包可双击 `Start-Test.cmd`。脚本依次进行文件校验、通用测试、MCP 协议、WinForms 闭环、WPF/UIA/原生鼠标/遮挡与后台焦点采样。结果写入 `test-results/<时间>/`，同时生成可反馈的 ZIP；失败、阻塞和未执行分别记录，重复运行保留旧报告。[测试覆盖与人工步骤](docs/windows-testing.md)。
+解压包可双击 `Start-Test.cmd`。脚本依次进行文件校验、通用测试、MCP 协议、WinForms 闭环、人工辅导与 Skill 保存、WPF/UIA/原生鼠标/遮挡与后台焦点采样。结果写入 `test-results/<时间>/`，同时生成可反馈的 ZIP；失败、阻塞和未执行分别记录，重复运行保留旧报告。[测试覆盖与人工步骤](docs/windows-testing.md)。
 
 CI 会在含空格和中文的路径解压发布包，用 Windows PowerShell 5.1 运行同一入口，并使用实际 Claude Code CLI 检查配置及 MCP 连接。CLI 健康检查不调用模型。报告保留 14 天，通过后的发布包保留 30 天；已提交的关键证据见 [验收记录](docs/acceptance.md)。
 
