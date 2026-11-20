@@ -26,7 +26,8 @@ try {
     Copy-Item templates "$package/" -Recurse
     Copy-Item docs/interfaces.md, docs/human-guidance.md "$package/docs/"
     Copy-Item -Path Start-Test.cmd, Setup-Claude.cmd -Destination "$package/"
-    Copy-Item docs/windows-testing.md "$package/START-HERE.md"
+    $startHere = [IO.File]::ReadAllText((Join-Path $repo "docs/windows-testing.md")).Replace("(human-guidance.md)", "(docs/human-guidance.md)")
+    [IO.File]::WriteAllText("$package/START-HERE.md", $startHere, [Text.UTF8Encoding]::new($false))
     $commit = $env:WINDOWS_CU_SOURCE_COMMIT
     if (-not $commit) { $commit = (& git rev-parse HEAD).Trim() }
     $files = @(Get-ChildItem $package -Recurse -File -Force | Sort-Object FullName | ForEach-Object {

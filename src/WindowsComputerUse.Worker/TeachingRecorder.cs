@@ -108,8 +108,9 @@ internal sealed class TeachingRecorder(WindowInfo target, RecordingRequest reque
                 uint msg = (uint)message;
                 string? kind = msg switch { 0x201 or 0x204 or 0x207 => "pointer_down", 0x202 or 0x205 or 0x208 => "pointer_up",
                     0x20A or 0x20E => "scroll", 0x200 when heldButtons != 0 => "drag_move", _ => null };
-                if (msg is 0x201 or 0x204 or 0x207) heldButtons++;
-                if (msg is 0x202 or 0x205 or 0x208) heldButtons = Math.Max(0, heldButtons - 1);
+                int button = msg is 0x204 or 0x205 ? 2 : msg is 0x207 or 0x208 ? 4 : 1;
+                if (msg is 0x201 or 0x204 or 0x207) heldButtons |= button;
+                if (msg is 0x202 or 0x205 or 0x208) heldButtons &= ~button;
                 if (kind == "drag_move" && Environment.TickCount64 - lastMove < 80) kind = null;
                 if (kind is not null)
                 {
@@ -118,6 +119,7 @@ internal sealed class TeachingRecorder(WindowInfo target, RecordingRequest reque
                     {
                         lastMove = Environment.TickCount64;
                         string detail = msg is 0x204 or 0x205 ? "right" : msg is 0x207 or 0x208 ? "middle" : "left";
+                        if (kind == "drag_move") detail = (heldButtons & 2) != 0 ? "right" : (heldButtons & 4) != 0 ? "middle" : "left";
                         if (kind == "scroll") detail = (msg == 0x20E ? "horizontal:" : "vertical:") + unchecked((short)(m.Data >> 16));
                         Enqueue(new(DateTimeOffset.UtcNow, kind, detail, window, m.Point.X, m.Point.Y, (m.Flags & 1) != 0));
                     }

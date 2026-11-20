@@ -66,9 +66,12 @@ public sealed class GuidanceService : IDisposable
         {
             if (activeId is null && File.Exists(activePath))
             {
-                if (request.Operation == "status") return new { active = true, session = Load(GuidanceFiles.Read<string>(activePath)), ownedByAnotherSession = true };
-                AcquireOwnership(); // Only succeeds when the previous MCP has exited.
+                try { AcquireOwnership(); } // Only succeeds when the previous MCP has exited.
+                catch (DesktopException) when (request.Operation == "status")
+                { return new { active = true, session = Load(GuidanceFiles.Read<string>(activePath)), ownedByAnotherSession = true }; }
                 activeId = GuidanceFiles.Read<string>(activePath); worker.SuspendActions(activeId);
+                var recovered = Load(activeId);
+                Save(recovered with { State = "interrupted", Warning = "Previous MCP owner exited. Resume with a fresh observation or cancel." });
             }
             if (request.Operation == "start") return await Start(request, ct);
             if (request.Operation == "status" && request.SessionId is null && activeId is null)
@@ -259,7 +262,7 @@ public sealed class GuidanceService : IDisposable
                 verified.Add(Wire.Element(new { predicateMatched = true, checkedAt = DateTimeOffset.UtcNow,
                     condition = check.Condition, selector = check.Selector, expectedText = check.Text, exact = check.Exact,
                     observedAt = observation.ObservedAt,
-                    observed = observation.Elements.Where(e => Selectors.Matches(e, check.Selector)).Take(12)
+                    observed = observation.Elements.Where(e => WaitRules.Matches(observation with { Elements = [e] }, check)).Take(12)
                         .Select(e => new { e.Name, e.AutomationId, e.ControlType, e.Value, e.Text, e.State }).ToArray() }));
             }
             if (request.UserConfirmationNoteId is not null)
