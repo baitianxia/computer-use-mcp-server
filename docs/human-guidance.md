@@ -60,6 +60,8 @@
 
 录制最多 600 秒、1000 个事件、60 帧，队列上限 256。达到限制只停止采集，控制权仍暂停。丢事件/缺帧须明确说明。不处理 UAC、安全桌面或锁屏。
 
+停止后只落盘已发生的输入，不再安排新截图；已进行中的 UIA/截图可能稍后返回。`stop` 可终止整个工作进程，之后需重新观察并明确恢复。
+
 Windows 自动测试通过测试程序注入输入验证链路，标记 injected；不代表真实人工、Claude 模型或企业微信业务已验收。
 
 规范：[Claude Code Skills](https://code.claude.com/docs/en/skills)、[Microsoft 鼠标 Hook](https://learn.microsoft.com/en-us/windows/win32/winmsg/lowlevelmouseproc)、[键盘 Hook](https://learn.microsoft.com/en-us/windows/win32/winmsg/lowlevelkeyboardproc)。Hook 回调只过滤入队，UIA/截图在独立线程处理。

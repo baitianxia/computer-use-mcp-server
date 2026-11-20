@@ -190,6 +190,8 @@ internal sealed class TeachingRecorder(WindowInfo target, RecordingRequest reque
                 var after = new Dictionary<nint, GuidanceFrame>();
                 foreach (nint handle in batch.Select(e => e.Window).Append(Native.GetForegroundWindow()).Where(InScope).Distinct().Take(3))
                 {
+                    // Preserve input that already happened, but never schedule another screenshot after stop.
+                    if (stopping) break;
                     if (frameCount >= 60) { RequestStop("frame_limit"); break; }
                     if (InScope(handle))
                     {
