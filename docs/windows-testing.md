@@ -2,6 +2,37 @@
 
 这个包包含 Server、Worker、WinForms/WPF 测试客户端和独立测试器。解压后即可运行，无需 .NET SDK；Claude Code 需另行安装并登录，才能进行模型驱动的任务验收。
 
+## 安装到 Claude Code，再正常使用
+
+1. 先安装 Claude Code，在普通 Windows Terminal 确认 `claude --version` 可用。
+2. 完整解压本包，双击 `Setup-Claude.cmd`。它会将程序安装到 `%LOCALAPPDATA%\WindowsComputerUse\versions\...`，注册用户级 MCP，并安装个人 Skills。无需管理员权限。
+3. 在你平时的任意工作目录启动或重启 `claude`，使用 `/mcp` 检查 `windows_cu`，然后直接输入桌面任务。不要求进入解压目录，也不要求手动启动 Server。
+4. 用以下任务验收。示例 Skill 会从自己的 `installation.json` 找到已安装的演示程序。
+
+```text
+/cu-demo-orders 启动订单演示客户端并查询 A1001，核对订单号、状态、金额和新的查询序号。
+在 CU Demo Orders 查询 A1002，确认不是上一次的旧结果。
+允许前台操作：通过截图定位并点击 Orange 色块，核对选择结果。
+在 CU Demo Orders 打开 Show dialog，识别弹窗并关闭，重新观察主窗口。
+仅在后台查询 A1001，无法后台完成时停止并说明原因。
+```
+
+关闭并重开 Claude Code，从另一个工作目录重复查询，检查个人 Skill 复用。用户级 MCP 和个人 Skills 是 Claude Code 官方支持的跨项目接入方式。[MCP 用户级配置](https://code.claude.com/docs/en/mcp#user-scope)、[个人 Skills](https://code.claude.com/docs/en/skills#choose-where-skills-load)。
+
+安装后的程序路径记录在 `%LOCALAPPDATA%\WindowsComputerUse\installation.json`；解压目录可移动或删除。已有 Claude 会话需要重启加载新 MCP。重复安装保留旧版本程序和同名 Skill 的备份，位置在 `WindowsComputerUse/backups`；其他 MCP/Skill 不由本安装器更改。设置了 `CLAUDE_CONFIG_DIR` 时，Skills 安装在该目录下。
+
+开发者需要项目内调试时，另用 `scripts/Register-ClaudeMcp.ps1 -Scope project`。旧项目的同名 local/project MCP 配置优先于 user，遇到旧路径可用 `claude mcp get windows_cu` 确认作用域，再移除相应旧配置。
+
+随后可让 Claude 从安装目录启动 `wpf/CuWpfDemo.exe`，集中检查新增 UIA 能力：
+
+```text
+在 CU WPF Controls 中将 EditableText 改为“本次测试”，打开 Enable option，
+同时选中 Choice 01 和 Choice 02，展开 Orders folder，将滑块设为 73，
+滚动使 Choice 30 可见。逐项从新的控件状态核对结果；不能执行或无法验证的项单独报告。
+```
+
+`templates/claude-client-skill` 可复制为真实客户端 Skill；接口字段见 `docs/interfaces.md`。CLI 连接检查不调用模型，也不替代上述业务验收。自动化的已知色块识别用于检查截图与坐标映射，不证明模型视觉理解。
+
 ## 一次操作收集自动测试结果
 
 1. 将 `windows-cu-win-x64.zip` 完整解压到本地目录，例如 `C:\Tools\Windows CU`。保留所有子目录；支持路径中包含空格和中文。
@@ -21,36 +52,7 @@
 | winforms | 订单新旧结果核验、WGC、坐标点击、Unicode、快捷键、弹窗、窗口移动、最小化及重开 |
 | wpf-matrix | 控件筛选与状态等待、只读保护、多选、展开折叠、滑块、滚动、遮挡捕获、后台焦点采样、双击、右键、滚轮、短拖拽及调整窗口大小 |
 
-首次测试建议保留完整自动报告，然后在同一次 Windows 会话继续下面的人工检查。修复后重新运行不会覆盖旧报告。
-
-## Claude Code 接入和模型验收
-
-1. 在普通 Windows Terminal 中确认 `claude --version` 可用。
-2. 双击 `Setup-Claude.cmd`。它按当前解压路径创建/更新项目 `.mcp.json`，保留其他 MCP 配置，并在覆盖旧配置前保存备份。移动解压目录后重新运行一次。
-3. 在该解压目录启动 `claude`。按 Claude Code 提示处理项目/MCP 信任，使用 `/mcp` 确认 `windows_cu` 已连接。脚本不修改全局权限模式。
-4. 打开 `demo\CuDemo.exe`，在 Claude Code 输入以下任务，完成后保存对话中的操作事实和核验结果。
-
-```text
-/cu-demo-orders 查询 A1001，核对输入值、订单号、状态、金额和新的查询序号。
-在 CU Demo Orders 查询 A1002，确认不是上一次的旧结果。
-允许前台操作：通过截图定位并点击 Orange 色块，核对选择结果。
-在 CU Demo Orders 打开 Show dialog，识别弹窗并关闭，重新观察主窗口。
-仅在后台查询 A1001，无法后台完成时停止并说明原因。
-```
-
-关闭并重新启动 Claude Code，再重复一次自然语言订单查询，检查 Skill 是否在新会话中自动匹配。`.claude/skills` 是 Claude Code 项目 Skill 目录；`name`、`description` 和 `$ARGUMENTS` 使用其官方格式。[MCP 规范](https://code.claude.com/docs/en/mcp)、[Skills 规范](https://code.claude.com/docs/en/skills)。
-
-随后打开 `wpf\CuWpfDemo.exe`，集中检查新增 UIA 能力：
-
-```text
-在 CU WPF Controls 中将 EditableText 改为“本次测试”，打开 Enable option，
-同时选中 Choice 01 和 Choice 02，展开 Orders folder，将滑块设为 73，
-滚动使 Choice 30 可见。逐项从新的控件状态核对结果；不能执行或无法验证的项单独报告。
-```
-
-包内 `templates/claude-client-skill` 可复制为真实客户端 Skill；接口字段见 `docs/interfaces.md`。只填写已经观察或核实的控件特征，不保存固定句柄或坐标。
-
-CI 的 CLI 连接检查不调用模型，也不替代上述步骤。自动化的已知色块识别用于检查截图与坐标映射，不证明模型的视觉理解。
+自动诊断可以在安装前或安装后独立运行；正常使用不要求先跑这一步。建议在同一次 Windows 会话保留自动报告和上述人工验收结果。修复后重新运行不会覆盖旧报告。
 
 ## 同一次测试再记录这些信息
 

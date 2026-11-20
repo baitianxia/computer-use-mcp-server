@@ -4,13 +4,13 @@ description: 在本项目的 CU Demo Orders Windows 测试客户端查询模拟�
 argument-hint: "[订单号或演示任务]"
 ---
 
-先读取相邻的 `../windows-desktop/SKILL.md`，复用通用观察与动作约定。用户任务：$ARGUMENTS
+先读取 `${CLAUDE_SKILL_DIR}/../windows-desktop/SKILL.md`，复用通用观察与动作约定。用户任务：$ARGUMENTS
 
 ## 应用识别
 
 - 别名：CU Demo Orders、CuDemo、订单演示客户端。
 - 窗口标题包含 `CU Demo Orders`；进程名通常为 `CuDemo`。同时检查页面内的 `Order number` 输入框和 `Query` 按钮。
-- 客户端已启动时复用现有窗口。未启动时，可通过终端运行当前解压包中的 `demo/CuDemo.exe`，或源码构建目录的 `artifacts/win-x64/demo/CuDemo.exe`；先检查哪个路径存在。
+- 客户端已启动时复用现有窗口。未启动时，先读取 `${CLAUDE_SKILL_DIR}/installation.json`（若存在），使用其中 installDirectory 下的 `demo/CuDemo.exe`。项目调试时再查找解压包的 `demo/CuDemo.exe` 或源码构建目录的 `artifacts/win-x64/demo/CuDemo.exe`。不要把当前工作目录当作安装目录。
 - 多个实例无法区分时询问用户，不保存固定 HWND/PID。
 
 ## 查询与验证

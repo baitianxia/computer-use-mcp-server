@@ -21,7 +21,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Publish failed: $part" }
     }
     New-Item -ItemType Directory -Force "$package/scripts", "$package/.claude", "$package/docs" | Out-Null
-    Copy-Item scripts/Test-Windows.ps1, scripts/Register-ClaudeMcp.ps1 "$package/scripts/"
+    Copy-Item scripts/Test-Windows.ps1, scripts/Register-ClaudeMcp.ps1, scripts/Install-Claude.ps1 "$package/scripts/"
     Copy-Item .claude/skills "$package/.claude/" -Recurse
     Copy-Item templates "$package/" -Recurse
     Copy-Item docs/interfaces.md "$package/docs/"

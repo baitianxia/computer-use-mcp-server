@@ -61,17 +61,35 @@ jobs:
           $config = Get-Content "$bundle/.mcp.json" -Raw -Encoding utf8 | ConvertFrom-Json
           if ($config.mcpServers.windows_cu.command -ne "$bundle\server\WindowsComputerUse.Server.exe") { throw 'Relocated MCP path mismatch.' }
           if ($config.mcpServers.existing_fixture.command -ne $preservedPath) { throw 'An existing Unicode MCP entry was changed.' }
-          $health = Join-Path $env:RUNNER_TEMP 'cu-claude-health'
+          $installRoot = Join-Path $env:RUNNER_TEMP 'Windows CU 安装目录'
+          $unrelatedSkill = Join-Path $env:CLAUDE_CONFIG_DIR 'skills/unrelated-fixture'
+          New-Item -ItemType Directory -Force $unrelatedSkill | Out-Null
+          'Preserve this existing personal skill.' | Set-Content "$unrelatedSkill/SKILL.md" -Encoding utf8
+          $unrelatedHash = (Get-FileHash "$unrelatedSkill/SKILL.md").Hash
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$bundle/scripts/Install-Claude.ps1" -BundleRoot $bundle -InstallRoot $installRoot *>&1 | Tee-Object artifacts/acceptance/claude-install.log
+          if ($LASTEXITCODE -ne 0) { throw 'User installation failed.' }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$bundle/scripts/Install-Claude.ps1" -BundleRoot $bundle -InstallRoot $installRoot *>&1 | Tee-Object artifacts/acceptance/claude-reinstall.log
+          if ($LASTEXITCODE -ne 0) { throw 'Repeated user installation failed.' }
+          $receipt = Get-Content "$installRoot/installation.json" -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($receipt.mcpScope -ne 'user' -or -not $receipt.cliConnected) { throw 'User installation receipt is incomplete.' }
+          if (-not (Test-Path $receipt.server) -or $receipt.server.StartsWith($bundle)) { throw 'MCP must use the permanent installed executable.' }
+          if ((Get-FileHash "$unrelatedSkill/SKILL.md").Hash -ne $unrelatedHash) { throw 'An unrelated personal Skill was modified.' }
+          foreach ($name in @('windows-desktop','cu-demo-orders')) {
+            $skillPath = Join-Path $env:CLAUDE_CONFIG_DIR "skills/$name"
+            if (-not (Test-Path "$skillPath/SKILL.md")) { throw "Missing personal Skill: $name" }
+            $skillInstall = Get-Content "$skillPath/installation.json" -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($skillInstall.installDirectory -ne $receipt.installDirectory) { throw 'Personal Skill has the wrong installation path.' }
+          }
+          Move-Item -LiteralPath $bundle -Destination ($bundle + '-moved')
+          $health = Join-Path $env:RUNNER_TEMP 'unrelated-working-directory'
           New-Item -ItemType Directory -Force $health | Out-Null
           Push-Location $health
           try {
-            & claude mcp add --transport stdio --scope user windows_cu -- "$bundle/server/WindowsComputerUse.Server.exe"
-            if ($LASTEXITCODE -ne 0) { throw 'Isolated Claude registration failed.' }
             $output = (& claude mcp get windows_cu 2>&1 | Out-String)
             $output | Tee-Object "$env:GITHUB_WORKSPACE/artifacts/acceptance/claude-connection.log"
             $connected = $LASTEXITCODE -eq 0 -and $output -match 'Connected' -and $output -notmatch 'Failed to connect|Pending approval'
-            @{ version = $version; connected = $connected; modelTaskVerified = $false; scope = 'isolated CLI MCP health check; no model authentication or model task' } | ConvertTo-Json | Set-Content "$env:GITHUB_WORKSPACE/artifacts/acceptance/claude-connection.json" -Encoding utf8
-            if (-not $connected) { throw 'Claude Code did not report Connected.' }
+            @{ version = $version; connected = $connected; modelTaskVerified = $false; scope = 'user installation; original extraction moved; unrelated working directory'; reinstallVerified = $true; personalSkillsInstalled = $true; unrelatedSkillPreserved = $true; installDirectory = $receipt.installDirectory } | ConvertTo-Json | Set-Content "$env:GITHUB_WORKSPACE/artifacts/acceptance/claude-connection.json" -Encoding utf8
+            if (-not $connected) { throw 'Installed MCP did not connect from another working directory.' }
           } finally { Pop-Location }
 
       - name: Upload test evidence even on failure

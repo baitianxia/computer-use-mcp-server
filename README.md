@@ -6,7 +6,7 @@
 
 本轮补齐控件筛选与状态、条件等待、多选/滑块/控件滚动、WPF 与原生键鼠矩阵，以及自包含集中测试包。Skill 和 MCP 均面向 Claude Code。
 
-**带到 Windows 测试：** 获取 `windows-cu-win-x64.zip`，完整解压，双击 `Start-Test.cmd`；然后运行 `Setup-Claude.cmd` 接入 Claude Code。[集中测试步骤](docs/windows-testing.md)。
+**在 Windows 安装使用：** 获取 `windows-cu-win-x64.zip`，完整解压，双击 `Setup-Claude.cmd` 安装到当前用户的 Claude Code，然后在日常工作目录启动或重启 `claude`。`Start-Test.cmd` 是独立的自动诊断入口。[集中测试步骤](docs/windows-testing.md)。
 
 ## 交付结构
 
@@ -20,7 +20,7 @@
 | `templates/claude-client-skill` | 未安装的 Claude Code 客户端 Skill 模板 |
 | `samples/CuDemo` | 带查询、旧结果、弹窗、自绘图形的 WinForms 测试客户端 |
 | `samples/CuWpfDemo` | 多选、树节点、滑块、滚动和原生鼠标事件的 WPF 测试客户端 |
-| `Start-Test.cmd` / `Setup-Claude.cmd` | 集中测试入口 / Claude Code 项目 MCP 配置入口 |
+| `Start-Test.cmd` / `Setup-Claude.cmd` | 自动诊断入口 / Claude Code 用户级安装入口 |
 | `tests/WindowsComputerUse.Tests` | 可移植测试、真实 MCP 协议探针、Windows 示例闭环探针 |
 
 这些 Skill 使用 Claude Code 的 `.claude/skills/<名称>/SKILL.md` 格式；MCP 注册使用 `claude mcp add` / `.mcp.json`。没有 Codex 专用配置。
@@ -45,33 +45,26 @@
 .\artifacts\win-x64\demo\CuDemo.exe
 ```
 
-### 2. 注册到 Claude Code
+### 2. 安装到 Claude Code
 
-先确认 `claude --version` 可用，然后执行：
+先安装 Claude Code，确认 `claude --version` 可用。双击解压包的 `Setup-Claude.cmd`，或从源码构建后执行：
 
 ```powershell
-.\scripts\Register-ClaudeMcp.ps1 -Scope project
-claude
+.\scripts\Install-Claude.ps1
 ```
 
-默认 project scope 在当前目录创建/更新标准 `.mcp.json`，按实际位置写入 exe 路径，并保留其他 MCP 配置、备份旧文件。`local/user` scope 通过 `claude mcp add --transport stdio --scope ...` 注册。目录移动后重新运行配置脚本。
+安装器将完整程序复制到 `%LOCALAPPDATA%\WindowsComputerUse\versions\...`，用官方 `claude mcp add --scope user` 注册 `windows_cu`，并将两个 Skill 放入 `%USERPROFILE%\.claude\skills\`。设置了 `CLAUDE_CONFIG_DIR` 时使用对应的个人 Skills 目录。重复安装会更新本产品的 MCP 和 Skill，保留其他配置，并备份同名旧 Skill。
 
-项目 `.claude/skills` 随项目被发现；需要在所有项目使用 Skill 时，将 Skill 目录复制到 `%USERPROFILE%\.claude\skills\`。也可参考 `.mcp.json.example` 手动配置。项目配置写入或 CLI 查询成功不等于模型业务验收。
+安装后，在你平时的工作目录启动或重启 `claude`，使用 `/mcp` 确认连接，再直接描述桌面任务。不需要进入工程或解压目录，也不需要手动启动 MCP Server；安装后解压目录可移动或删除。具体程序位置保存在 `%LOCALAPPDATA%\WindowsComputerUse\installation.json`。
 
-重新进入 Claude Code 后使用 `/mcp` 检查 `windows_cu` 是否连接，并确认存在：
-
-```text
-list_windows  inspect_window  capture_window  perform_action  wait_for  stop
-```
-
-Claude Code 自身可能要求信任项目级 MCP 配置或批准工具调用，按 CLI 提示处理。项目未增加完整的业务审批系统，也不修改 Claude Code 的权限模式。
+开发调试仍可显式运行 `scripts/Register-ClaudeMcp.ps1 -Scope project`；这是项目级接入选项。同名 local/project 配置优先于用户级，旧项目配置需要按实际情况移除。安装器不更改 Claude Code 权限模式。
 
 ### 3. 在 Claude Code 中验证 Skill 与闭环
 
-在项目目录启动的新会话里输入：
+在任意日常工作目录启动的新会话里输入：
 
 ```text
-/cu-demo-orders 查询 A1001，核对订单号、状态、金额和本次查询序号。
+/cu-demo-orders 启动订单演示客户端并查询 A1001，核对订单号、状态、金额和本次查询序号。
 ```
 
 然后测试自动匹配：

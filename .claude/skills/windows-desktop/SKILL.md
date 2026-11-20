@@ -42,4 +42,4 @@ UIA 动作 `invoke/set_value/toggle/select/add_selection/remove_selection/expand
 
 ## Claude Code 接入检查
 
-工具不可见时，请用户通过 `/mcp` 检查 `windows_cu`。项目级配置在 `.mcp.json`，用户级接入使用项目提供的 `scripts/Register-ClaudeMcp.ps1`。不要将终端输出、配置存在或服务进程启动等同于桌面操作成功。
+工具不可见时，请用户通过 `/mcp` 检查 `windows_cu`。正常安装使用 `Setup-Claude.cmd`，注册用户级 MCP 并安装个人 Skills，可在日常工作目录使用。开发调试可显式使用 `scripts/Register-ClaudeMcp.ps1 -Scope project`。同名的 local/project MCP 配置优先于 user，排查时注意旧项目配置。不要将终端输出、配置存在或服务进程启动等同于桌面操作成功。
