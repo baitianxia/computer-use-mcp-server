@@ -1,0 +1,55 @@
+{
+  "sourceCommit": "72cff221847c8b395f87ade4fb65d6e2c88b365a",
+  "workflowRunId": 44696758984,
+  "jobId": 136155240302,
+  "workflowUrl": "https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44696758984",
+  "evidenceArtifact": {
+    "id": 14611555814,
+    "sha256": "edc639d4d27eb8aaf199fc3ab6fa958bd0b7c5c9ab52dbc6d3207e199453759e"
+  },
+  "bundleArtifact": {
+    "id": 14611101453,
+    "sha256": "4162cfd03913b9a665c25e82c4b8b1c3ec5dfc0b407d1264ccbf62c73b9c59bc"
+  },
+  "files": [
+    {
+      "path": "claude-connection.json",
+      "sha256": "ff986545656fbabe57522d0e60197be45556a31ffb2dbb07142748ef68631354"
+    },
+    {
+      "path": "claude-connection.txt",
+      "sha256": "6378cd32736a4e7fdb2f31d48717d1d476468f3bfb913a6f78cfe1d8f73a3347"
+    },
+    {
+      "path": "claude-install.txt",
+      "sha256": "606ee9aa2ef2ce3321a0c42ed57e129dcb0009e876bc4cd0c118b1088e6c4b47"
+    },
+    {
+      "path": "claude-reinstall.txt",
+      "sha256": "606ee9aa2ef2ce3321a0c42ed57e129dcb0009e876bc4cd0c118b1088e6c4b47"
+    },
+    {
+      "path": "protocol-smoke.json",
+      "sha256": "c910ab7c5db8750c67f74c1abf7e07ca3a5387a8a6992b7edd571db44bc7cbe3"
+    },
+    {
+      "path": "summary.json",
+      "sha256": "9978f7a10142208ad8dcc0098a160f885ecdcc4ae6d639ec84e36d847f4da89c"
+    },
+    {
+      "path": "windows-matrix.json",
+      "sha256": "6d2b2e51549ce919f03f3cf1eb711dc91cb48476f25c9f93331dafa486004902"
+    },
+    {
+      "path": "windows-smoke.json",
+      "sha256": "0ba08f8c1a3d4968e18a3fb12bf6864426b3118bb1738e7c35f4a115db1ccd30"
+    }
+  ],
+  "windowsTestPackage": {
+    "file": "windows-cu-win-x64.zip",
+    "sourceCommit": "72cff221847c8b395f87ade4fb65d6e2c88b365a",
+    "verifiedFiles": 1425,
+    "bytes": 259548961,
+    "sha256": "bb28aaad1ab2ba17a4c8f2cdc0f519b3d53890d0943404282ef7f612ff9f191f"
+  }
+}

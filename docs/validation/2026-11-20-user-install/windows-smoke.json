@@ -1,0 +1,216 @@
+{
+  "timestamp": "2026-11-20T07:43:01.3277336+00:00",
+  "os": "Microsoft Windows 10.0.26100",
+  "osArchitecture": "X64",
+  "processArchitecture": "X64",
+  "userInteractive": true,
+  "sessionId": 2,
+  "sourceCommit": "72cff221847c8b395f87ade4fb65d6e2c88b365a",
+  "scope": "MCP and native demo smoke test",
+  "passed": true,
+  "checks": [
+    {
+      "name": "MCP initialize",
+      "passed": true,
+      "evidence": "2025-06-18"
+    },
+    {
+      "name": "Tool schema list_windows",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema inspect_window",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema capture_window",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema perform_action",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema wait_for",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema stop",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Background request never silently becomes input",
+      "passed": true,
+      "evidence": "structured error from MCP tool call"
+    },
+    {
+      "name": "Invalid capture backend is rejected before desktop access",
+      "passed": true,
+      "evidence": "structured capture validation from MCP tool call"
+    },
+    {
+      "name": "Find launched demo by title and PID",
+      "passed": true,
+      "evidence": "demo PID 6064"
+    },
+    {
+      "name": "Action does not claim business success",
+      "passed": true,
+      "evidence": "set_value"
+    },
+    {
+      "name": "Action does not claim business success",
+      "passed": true,
+      "evidence": "invoke"
+    },
+    {
+      "name": "Query completed with new sequence",
+      "passed": true,
+      "evidence": "query #1"
+    },
+    {
+      "name": "Exact business result",
+      "passed": true,
+      "evidence": "Order A1001 | Ready | Amount 128.00 | Query #1"
+    },
+    {
+      "name": "Foreground unchanged at check points",
+      "passed": true,
+      "evidence": "before/after only; continuous focus/noninterference still requires manual verification"
+    },
+    {
+      "name": "Action does not claim business success",
+      "passed": true,
+      "evidence": "set_value"
+    },
+    {
+      "name": "Action does not claim business success",
+      "passed": true,
+      "evidence": "invoke"
+    },
+    {
+      "name": "Query completed with new sequence",
+      "passed": true,
+      "evidence": "query #2"
+    },
+    {
+      "name": "Exact business result",
+      "passed": true,
+      "evidence": "Order A1002 | Shipped | Amount 256.50 | Query #2"
+    },
+    {
+      "name": "Foreground unchanged at check points",
+      "passed": true,
+      "evidence": "before/after only; continuous focus/noninterference still requires manual verification"
+    },
+    {
+      "name": "Explicit WGC capture uses WGC without fallback",
+      "passed": true,
+      "evidence": "Windows Graphics Capture frame timestamp and actual backend returned"
+    },
+    {
+      "name": "WGC capture includes coordinate geometry",
+      "passed": true,
+      "evidence": "dwm_extended_frame_bounds"
+    },
+    {
+      "name": "PNG image returned through MCP",
+      "passed": true,
+      "evidence": "15185 bytes; visual correctness requires review"
+    },
+    {
+      "name": "Screenshot coordinates click the painted Orange fixture",
+      "passed": true,
+      "evidence": "PNG pixel (506,274); native SendInput mouse path"
+    },
+    {
+      "name": "An action invalidates its screenshot reference",
+      "passed": true,
+      "evidence": "the same screenshot cannot be reused for another click"
+    },
+    {
+      "name": "Unicode SendInput preserves Chinese text and surrogate pairs",
+      "passed": true,
+      "evidence": "\u6D4B\u8BD5\u8BA2\u5355\uD83D\uDE00"
+    },
+    {
+      "name": "Keyboard shortcuts can select and clear the input",
+      "passed": true,
+      "evidence": "CTRL\u002BA then BACKSPACE"
+    },
+    {
+      "name": "Action does not claim business success",
+      "passed": true,
+      "evidence": "set_value"
+    },
+    {
+      "name": "A modal dialog is discovered as an owned window",
+      "passed": true,
+      "evidence": "dialog found after native click"
+    },
+    {
+      "name": "Modal dialog contents can be inspected",
+      "passed": true,
+      "evidence": "dialog UIA text verified"
+    },
+    {
+      "name": "Keyboard shortcut closes the dialog and main window remains readable",
+      "passed": true,
+      "evidence": "ALT\u002BF4, re-list and inspect"
+    },
+    {
+      "name": "Window movement rejects old screenshot coordinates before input",
+      "passed": true,
+      "evidence": "fixture moved by Win32; old capture rejected"
+    },
+    {
+      "name": "New scaled WGC image maps to the moved window",
+      "passed": true,
+      "evidence": "640-pixel-wide PNG, detected Blue at (160,230)"
+    },
+    {
+      "name": "Minimized windows cannot return an apparently fresh capture",
+      "passed": true,
+      "evidence": "explicit rejection"
+    },
+    {
+      "name": "Restored windows can be captured again",
+      "passed": true,
+      "evidence": "strict WGC capture succeeded after restore"
+    },
+    {
+      "name": "Restart invalidates old window references",
+      "passed": true,
+      "evidence": "old reference rejected after worker stop"
+    },
+    {
+      "name": "Window can be rediscovered after worker restart",
+      "passed": true,
+      "evidence": "new worker reference returned for the same demo process"
+    },
+    {
+      "name": "Closing the application invalidates its window reference",
+      "passed": true,
+      "evidence": "closed process reference rejected"
+    },
+    {
+      "name": "Reopened application is found and inspected with a new reference",
+      "passed": true,
+      "evidence": "fresh process instance and initial state"
+    }
+  ],
+  "claudeCodeIntegrationVerified": false,
+  "remaining": [
+    "Claude Code /mcp and Skill discovery",
+    "Claude-driven visual fallback (fixture pixels are detected deterministically)",
+    "Windows 10/11, occlusion, multi-monitor DPI and in-flight resize validation",
+    "Continuous foreground noninterference",
+    "Real business client acceptance"
+  ]
+}

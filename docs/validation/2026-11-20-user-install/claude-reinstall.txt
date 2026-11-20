@@ -1,0 +1,5 @@
+Installed program: D:\a\_temp\Windows CU 安装目录\versions\72cff221847c-0a6570abbdbcfeb3
+Installed personal Skills: D:\a\_temp\cu-claude-config\skills
+Registered windows_cu in Claude Code user scope.
+Start or restart Claude Code in your usual working directory. The extracted package directory is no longer required.
+Claude Code MCP connection verified. Model-driven tasks still need a normal Claude Code session.

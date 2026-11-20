@@ -2,7 +2,7 @@
 
 本地功能验证版：让 **Claude Code CLI** 通过标准 MCP stdio 工具发现 Windows 窗口、读取 UI Automation、截图并执行桌面动作。推理和任务规划由 Claude Code 负责；MCP 不调用模型。
 
-**当前验证范围：** 2026-11-20 在 **Windows Server 2025 x64** 上完成最终测试：通用 27 项、MCP 协议 9 项、WinForms 39 项、WPF 30 项通过；Claude Code 2.1.329 的真实 CLI MCP 连接通过。发布包在含中文和空格的路径中由 PowerShell 5.1 运行。Windows 10/11 实机、Claude 模型任务及真实业务客户端仍未验证。[本轮验收记录](docs/acceptance.md)、[通过的 Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44694395792)。
+**当前验证范围：** 2026-11-20 在 **Windows Server 2025 x64** 上完成最终测试：通用 27 项、MCP 协议 9 项、WinForms 39 项、WPF 30 项通过；Claude Code 2.1.329 的用户级安装、重复安装及移走解压目录后的跨目录 MCP 连接通过；个人 Skills 文件安装已检查，模型触发尚未验证。发布包在含中文和空格的路径中由 PowerShell 5.1 运行。Windows 10/11 实机、Claude 模型任务及真实业务客户端仍未验证。[本轮验收记录](docs/acceptance.md)、[通过的 Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44696758984)。
 
 本轮补齐控件筛选与状态、条件等待、多选/滑块/控件滚动、WPF 与原生键鼠矩阵，以及自包含集中测试包。Skill 和 MCP 均面向 Claude Code。
 
