@@ -44,7 +44,7 @@ try {
     if ([Environment]::OSVersion.Version.Build -lt 19041) { throw 'Requires Windows build 19041 or newer for this package.' }
     if (-not [Environment]::UserInteractive) { throw 'Sign in to an interactive Windows desktop before running the native suites.' }
     if (-not (Test-Path "$BundleRoot/package-manifest.json")) { throw 'Package manifest missing. Run scripts/Build.ps1 or extract a complete test bundle.' }
-    $manifest = Get-Content "$BundleRoot/package-manifest.json" -Raw | ConvertFrom-Json
+    $manifest = Get-Content "$BundleRoot/package-manifest.json" -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($file in $manifest.files) {
         $path = Join-Path $BundleRoot $file.path
         if (-not (Test-Path $path) -or (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $file.sha256) { throw "Package file missing or changed: $($file.path)" }

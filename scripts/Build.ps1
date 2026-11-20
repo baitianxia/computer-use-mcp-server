@@ -23,7 +23,7 @@ try {
     New-Item -ItemType Directory -Force "$package/scripts", "$package/.claude" | Out-Null
     Copy-Item scripts/Test-Windows.ps1, scripts/Register-ClaudeMcp.ps1 "$package/scripts/"
     Copy-Item .claude/skills "$package/.claude/" -Recurse
-    Copy-Item Start-Test.cmd Setup-Claude.cmd "$package/"
+    Copy-Item -Path Start-Test.cmd, Setup-Claude.cmd -Destination "$package/"
     Copy-Item docs/windows-testing.md "$package/START-HERE.md"
     $commit = $env:WINDOWS_CU_SOURCE_COMMIT
     if (-not $commit) { $commit = (& git rev-parse HEAD).Trim() }

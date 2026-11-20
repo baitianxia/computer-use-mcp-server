@@ -52,10 +52,15 @@ jobs:
           $bundle = Join-Path $env:RUNNER_TEMP 'Windows CU 测试包'
           $env:CLAUDE_CONFIG_DIR = Join-Path $env:RUNNER_TEMP 'cu-claude-config'
           $version = (& claude --version | Out-String).Trim()
+          $preservedPath = 'C:\保留路径\existing.exe'
+          @{ mcpServers = @{ existing_fixture = @{ type = 'stdio'; command = $preservedPath; args = @() } } } | ConvertTo-Json -Depth 6 | Set-Content "$bundle/.mcp.json" -Encoding utf8
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$bundle/scripts/Register-ClaudeMcp.ps1" *>&1 | Tee-Object artifacts/acceptance/claude-project-config.log
           if ($LASTEXITCODE -ne 0) { throw 'Claude project setup failed.' }
-          $config = Get-Content "$bundle/.mcp.json" -Raw | ConvertFrom-Json
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$bundle/scripts/Register-ClaudeMcp.ps1" *>&1 | Tee-Object artifacts/acceptance/claude-project-repeat.log
+          if ($LASTEXITCODE -ne 0) { throw 'Repeated Claude project setup failed.' }
+          $config = Get-Content "$bundle/.mcp.json" -Raw -Encoding utf8 | ConvertFrom-Json
           if ($config.mcpServers.windows_cu.command -ne "$bundle\server\WindowsComputerUse.Server.exe") { throw 'Relocated MCP path mismatch.' }
+          if ($config.mcpServers.existing_fixture.command -ne $preservedPath) { throw 'An existing Unicode MCP entry was changed.' }
           $health = Join-Path $env:RUNNER_TEMP 'cu-claude-health'
           New-Item -ItemType Directory -Force $health | Out-Null
           Push-Location $health

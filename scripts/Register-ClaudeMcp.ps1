@@ -14,7 +14,7 @@ Push-Location $ProjectDirectory
 try {
     if ($Scope -eq 'project') {
         $path = Join-Path $ProjectDirectory '.mcp.json'
-        if (Test-Path $path) { $config = Get-Content $path -Raw | ConvertFrom-Json }
+        if (Test-Path $path) { $config = Get-Content $path -Raw -Encoding UTF8 | ConvertFrom-Json }
         else { $config = [pscustomobject]@{} }
         if (-not $config.PSObject.Properties['mcpServers']) { $config | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([pscustomobject]@{}) }
         if ($null -eq $config.mcpServers -or $config.mcpServers -isnot [pscustomobject]) { throw 'Existing .mcp.json has an invalid mcpServers object; no changes made.' }
