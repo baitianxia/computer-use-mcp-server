@@ -40,6 +40,16 @@
 
 关闭并重新启动 Claude Code，再重复一次自然语言订单查询，检查 Skill 是否在新会话中自动匹配。`.claude/skills` 是 Claude Code 项目 Skill 目录；`name`、`description` 和 `$ARGUMENTS` 使用其官方格式。[MCP 规范](https://code.claude.com/docs/en/mcp)、[Skills 规范](https://code.claude.com/docs/en/skills)。
 
+随后打开 `wpf\CuWpfDemo.exe`，集中检查新增 UIA 能力：
+
+```text
+在 CU WPF Controls 中将 EditableText 改为“本次测试”，打开 Enable option，
+同时选中 Choice 01 和 Choice 02，展开 Orders folder，将滑块设为 73，
+滚动使 Choice 30 可见。逐项从新的控件状态核对结果；不能执行或无法验证的项单独报告。
+```
+
+包内 `templates/claude-client-skill` 可复制为真实客户端 Skill；接口字段见 `docs/interfaces.md`。只填写已经观察或核实的控件特征，不保存固定句柄或坐标。
+
 CI 的 CLI 连接检查不调用模型，也不替代上述步骤。自动化的已知色块识别用于检查截图与坐标映射，不证明模型的视觉理解。
 
 ## 同一次测试再记录这些信息

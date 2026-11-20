@@ -20,6 +20,8 @@ internal sealed partial class McpProbe
         if (!OperatingSystem.IsWindows()) { Console.Error.WriteLine("Native matrix requires Windows; not run."); return 2; }
         Native.SetProcessDpiAwarenessContext((nint)(-4));
         var groups = new List<object>();
+        string[] expectedGroups = ["Selectors and wait conditions", "Native UIA patterns", "Background operations and occluded capture", "Native pointer operations"];
+        var completedGroups = new HashSet<string>();
         int failed = 0;
         Process? fixture = null, guard = null;
         using var probe = new McpProbe(Option("--server"), reports);
@@ -27,6 +29,7 @@ internal sealed partial class McpProbe
         {
             try { await action(); groups.Add(new { name, status = "passed", error = (string?)null }); }
             catch (Exception ex) { failed++; groups.Add(new { name, status = "failed", error = ex.Message }); Console.Error.WriteLine($"FAIL group {name}: {ex.Message}"); }
+            finally { completedGroups.Add(name); }
         }
         try
         {
@@ -172,6 +175,8 @@ internal sealed partial class McpProbe
         catch (Exception ex) { failed++; groups.Add(new { name = "Matrix setup", status = "failed", error = ex.Message }); Console.Error.WriteLine(ex); }
         finally
         {
+            foreach (string name in expectedGroups.Where(name => !completedGroups.Contains(name)))
+                groups.Add(new { name, status = "not_run", error = "Matrix setup did not complete." });
             foreach (var process in new[] { guard, fixture })
             {
                 try { if (process is { HasExited: false }) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }

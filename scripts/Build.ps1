@@ -20,9 +20,11 @@ try {
         & dotnet publish $projects[$part] -c Release -r $Runtime --self-contained true -o "$package/$part" /p:PublishSingleFile=false
         if ($LASTEXITCODE -ne 0) { throw "Publish failed: $part" }
     }
-    New-Item -ItemType Directory -Force "$package/scripts", "$package/.claude" | Out-Null
+    New-Item -ItemType Directory -Force "$package/scripts", "$package/.claude", "$package/docs" | Out-Null
     Copy-Item scripts/Test-Windows.ps1, scripts/Register-ClaudeMcp.ps1 "$package/scripts/"
     Copy-Item .claude/skills "$package/.claude/" -Recurse
+    Copy-Item templates "$package/" -Recurse
+    Copy-Item docs/interfaces.md "$package/docs/"
     Copy-Item -Path Start-Test.cmd, Setup-Claude.cmd -Destination "$package/"
     Copy-Item docs/windows-testing.md "$package/START-HERE.md"
     $commit = $env:WINDOWS_CU_SOURCE_COMMIT
