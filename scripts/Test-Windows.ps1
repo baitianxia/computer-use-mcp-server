@@ -64,9 +64,10 @@ if (-not $preflight) {
     Run-Suite 'portable' $tester @()
     Run-Suite 'protocol' $tester (@('--protocol') + $common)
     Run-Suite 'winforms' $tester (@('--windows-smoke') + $common + @('--demo', (Join-Path $BundleRoot 'demo/CuDemo.exe')))
+    Run-Suite 'guidance' $tester (@('--windows-guidance') + $common + @('--demo', (Join-Path $BundleRoot 'demo/CuDemo.exe')))
     Run-Suite 'wpf-matrix' $tester (@('--windows-matrix') + $common + @('--wpf', (Join-Path $BundleRoot 'wpf/CuWpfDemo.exe'), '--demo', (Join-Path $BundleRoot 'demo/CuDemo.exe')))
 } else {
-    foreach ($name in @('portable','protocol','winforms','wpf-matrix')) { $results.Add([pscustomobject]@{ name = $name; status = 'not_run'; error = 'Preflight blocked.' }) }
+    foreach ($name in @('portable','protocol','winforms','guidance','wpf-matrix')) { $results.Add([pscustomobject]@{ name = $name; status = 'not_run'; error = 'Preflight blocked.' }) }
 }
 
 $claude = Get-Command claude -ErrorAction SilentlyContinue
@@ -76,6 +77,8 @@ if ($claude) {
 }
 $manual = @(
     'Claude Code: run Setup-Claude.cmd, then /mcp and /windows-desktop. Verify one natural-language task in a new session.',
+    'Human coaching: in Claude Code, demonstrate a blocked step, resume, save a verified client Skill, then invoke it in a new session.',
+    'Windows 10 x64 and WeCom: find a named contact, verify identity, send the explicitly requested test message and verify the new outgoing message.',
     'Real client: identify the app, complete one representative task, verify the requested identifier and final business data.',
     'Display coverage: multiple monitors/DPI, HDR and resizing while capture is active require the corresponding hardware/manual checks.',
     'Background coexistence: sampled focus checks do not prove uninterrupted operation while a human is using mouse/keyboard.'

@@ -40,6 +40,10 @@ internal static class Program
         switch (request.Operation)
         {
             case "list_windows": return new(request.Id, Wire.Element(session.List(Args<ListRequest>(request))));
+            case "describe_window": return new(request.Id, Wire.Element(session.Describe(request.Arguments.GetProperty("windowRef").GetString()!)));
+            case "guidance_start": return new(request.Id, Wire.Element(session.StartGuidance(Args<RecordingRequest>(request))));
+            case "guidance_status": return new(request.Id, Wire.Element(session.GuidanceStatus(request.Arguments.GetProperty("sessionId").GetString()!)));
+            case "guidance_finish": return new(request.Id, Wire.Element(session.FinishGuidance(request.Arguments.GetProperty("sessionId").GetString()!)));
             case "inspect_window": return new(request.Id, Wire.Element(session.Inspect(Args<InspectRequest>(request))));
             case "capture_window":
                 var capture = session.Capture(Args<CaptureRequest>(request));

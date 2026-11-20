@@ -14,6 +14,23 @@ public sealed class WorkerClient(WorkerOptions options, Action<object>? audit = 
     private readonly object processLock = new();
     private Process? process;
     private CancellationTokenSource? active;
+    private string? guidanceSession;
+    public Func<string?>? ExternalActionBlock { get; set; }
+
+    public void SuspendActions(string sessionId)
+    {
+        lock (processLock)
+        {
+            if (guidanceSession is not null && guidanceSession != sessionId)
+                throw new DesktopException("guidance_active", $"Guidance {guidanceSession} already owns the handoff.");
+            guidanceSession = sessionId;
+        }
+    }
+
+    public void ResumeActions(string sessionId)
+    {
+        lock (processLock) { if (guidanceSession == sessionId) guidanceSession = null; }
+    }
 
     public async Task<WorkerResponse> CallAsync(string operation, object arguments, int timeoutMs, CancellationToken cancellationToken)
     {
@@ -33,6 +50,9 @@ public sealed class WorkerClient(WorkerOptions options, Action<object>? audit = 
             Process worker;
             lock (processLock)
             {
+                string? blockedBy = guidanceSession ?? (operation == "perform_action" ? ExternalActionBlock?.Invoke() : null);
+                if (operation == "perform_action" && blockedBy is not null)
+                    throw new DesktopException("guidance_active", $"Human guidance {blockedBy} owns desktop control. Use guide_task resume after the user finishes, or cancel.");
                 active = call;
                 worker = EnsureStarted();
             }

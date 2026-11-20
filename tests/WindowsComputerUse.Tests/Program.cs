@@ -11,6 +11,12 @@ if (args.Contains("--windows-matrix"))
     return;
 }
 
+if (args.Contains("--windows-guidance"))
+{
+    Environment.ExitCode = await McpProbe.RunGuidance(args);
+    return;
+}
+
 if (args.Contains("--protocol") || args.Contains("--windows-smoke"))
 {
     Environment.ExitCode = await McpProbe.Run(args, args.Contains("--windows-smoke"));
@@ -254,5 +260,6 @@ await CheckAsync("stop interrupts a blocked worker without waiting on its queue"
     Assert(result.Error is not null, "Stopped call reported success.");
 });
 
+await GuidanceChecks.Run(Check, CheckAsync, new(executable, workerArgs, RequireWindows: false));
 Console.WriteLine($"{passed} passed; {failed} failed. Native Windows behavior is not covered by these tests.");
 Environment.ExitCode = failed == 0 ? 0 : 1;

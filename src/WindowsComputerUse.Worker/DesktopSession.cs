@@ -13,6 +13,7 @@ internal sealed class DesktopSession : IDisposable
     private readonly UIA3Automation automation = new();
     private readonly WindowRegistry windows = new();
     private readonly ObservationStore<ElementTarget> observations = new(TimeSpan.FromMinutes(2));
+    private TeachingRecorder? recorder;
 
     public DesktopSession()
     {
@@ -22,6 +23,29 @@ internal sealed class DesktopSession : IDisposable
     }
 
     public IReadOnlyList<WindowInfo> List(ListRequest request) => windows.List(request);
+    internal WindowInfo Describe(string reference) => windows.Resolve(reference);
+    internal WindowInfo Describe(nint handle) => windows.Describe(handle);
+    internal RecordingStatus StartGuidance(RecordingRequest request)
+    {
+        if (recorder is not null) throw new DesktopException("guidance_active", "Finish the previous recorder first.");
+        var target = windows.Resolve(request.WindowRef);
+        recorder = new TeachingRecorder(target, request);
+        try { recorder.Start(); return recorder.Status(); }
+        catch { recorder.Dispose(); recorder = null; throw; }
+    }
+    internal RecordingStatus GuidanceStatus(string id)
+    {
+        if (recorder is null || recorder.SessionId != id)
+            return new(id, false, "recorder_not_running", 0, 0, 0, ["Recorder was stopped or the worker restarted; persisted evidence remains available."]);
+        return recorder.Status();
+    }
+    internal RecordingStatus FinishGuidance(string id)
+    {
+        if (recorder is null || recorder.SessionId != id) return GuidanceStatus(id);
+        recorder.Stop("user_finished");
+        var status = recorder.Status(); recorder.Dispose(); recorder = null;
+        return status;
+    }
 
     public Observation Inspect(InspectRequest request)
     {
@@ -291,5 +315,5 @@ internal sealed class DesktopSession : IDisposable
     }
 
     private static string? Limit(string? value) => value is { Length: > 2000 } ? value[..2000] : value;
-    public void Dispose() => automation.Dispose();
+    public void Dispose() { recorder?.Dispose(); automation.Dispose(); }
 }

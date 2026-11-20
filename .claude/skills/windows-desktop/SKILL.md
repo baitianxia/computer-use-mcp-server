@@ -40,6 +40,14 @@ UIA 动作 `invoke/set_value/toggle/select/add_selection/remove_selection/expand
 
 对于 `execution: unknown`，先观察当前状态再决定如何继续；不要直接重复提交类动作。相同问题最多做两次有依据的恢复尝试，仍无法继续则停止并给出工具错误及已知状态。
 
+## 人工辅导
+
+不知道客户端入口、业务含义或成功标准，或者用户纠正你的操作时，读取 `${CLAUDE_SKILL_DIR}/../windows-guide/SKILL.md` 并发起人工辅导。保留原任务和已完成的步骤，提出具体问题。用户可文字说明或亲自示范卡住的部分。
+
+`guide_task start` 会暂停模型的桌面动作；用户回复继续后才 `resume`，再依据新观察接续任务。通过 `read_guidance` 查看说明、示范事件和截图，由你整理语义流程。`save_client_skill` 保存未验证草稿，或在指定界面条件实测匹配后安装个人客户端 Skill。禁止通过其他工具绕过交接期间的暂停。
+
+企业微信联系人聊天先读取 `${CLAUDE_SKILL_DIR}/../wecom-desktop/SKILL.md`。已生成的 `windows-client-*` 是经人工辅导积累的知识；本次任务仍需独立核对对象与结果。
+
 ## Claude Code 接入检查
 
 工具不可见时，请用户通过 `/mcp` 检查 `windows_cu`。正常安装使用 `Setup-Claude.cmd`，注册用户级 MCP 并安装个人 Skills，可在日常工作目录使用。开发调试可显式使用 `scripts/Register-ClaudeMcp.ps1 -Scope project`。同名的 local/project MCP 配置优先于 user，排查时注意旧项目配置。不要将终端输出、配置存在或服务进程启动等同于桌面操作成功。

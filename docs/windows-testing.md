@@ -21,6 +21,8 @@
 
 安装后的程序路径记录在 `%LOCALAPPDATA%\WindowsComputerUse\installation.json`；解压目录可移动或删除。已有 Claude 会话需要重启加载新 MCP。重复安装保留旧版本程序和同名 Skill 的备份，位置在 `WindowsComputerUse/backups`；其他 MCP/Skill 不由本安装器更改。设置了 `CLAUDE_CONFIG_DIR` 时，Skills 安装在该目录下。
 
+新增人工辅导请按 [人工辅导说明](human-guidance.md) 操作。首期现场验收为 Windows 10 x64 上的企业微信：指定测试联系人和消息，遇到卡点示范，保存 windows-client-wecom 后在新会话复用。内置 wecom-desktop 尚未证明真实聊天成功。
+
 开发者需要项目内调试时，另用 `scripts/Register-ClaudeMcp.ps1 -Scope project`。旧项目的同名 local/project MCP 配置优先于 user，遇到旧路径可用 `claude mcp get windows_cu` 确认作用域，再移除相应旧配置。
 
 随后可让 Claude 从安装目录启动 `wpf/CuWpfDemo.exe`，集中检查新增 UIA 能力：

@@ -2,6 +2,8 @@
 
 目标客户端：Claude Code CLI。传输：本地 stdio；标准 MCP tool schema、`content` 文本/图片、`structuredContent` 和 `isError`。服务端不提供独立 Agent。
 
+新增 `guide_task`（开始/说明/恢复/检查点/取消）、`read_guidance`（事件与截图）、`save_client_skill`（草稿/验证后安装），详见[人工辅导接口](human-guidance.md)。辅导暂停期间拒绝 perform_action，需用户交回控制后 resume；MCP 重启仍保留记录和暂停状态。
+
 工具成功返回 `{"data": ...}`；错误返回 `{"error":{"code":"...","message":"...","execution":"not_executed|unknown",...}}` 并设置 `isError=true`。图片使用 MCP image content block，元数据同时返回在 data 中。
 
 ## 参数形状

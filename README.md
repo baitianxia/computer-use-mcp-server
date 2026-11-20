@@ -2,9 +2,11 @@
 
 本地功能验证版：让 **Claude Code CLI** 通过标准 MCP stdio 工具发现 Windows 窗口、读取 UI Automation、截图并执行桌面动作。推理和任务规划由 Claude Code 负责；MCP 不调用模型。
 
-**当前验证范围：** 2026-11-20 在 **Windows Server 2025 x64** 上完成最终测试：通用 27 项、MCP 协议 9 项、WinForms 39 项、WPF 30 项通过；Claude Code 2.1.329 的用户级安装、重复安装及移走解压目录后的跨目录 MCP 连接通过；个人 Skills 文件安装已检查，模型触发尚未验证。发布包在含中文和空格的路径中由 PowerShell 5.1 运行。Windows 10/11 实机、Claude 模型任务及真实业务客户端仍未验证。[本轮验收记录](docs/acceptance.md)、[通过的 Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44696758984)。
+**既有版本验证基线（不含新增人工辅导）：** 2026-11-20 在 **Windows Server 2025 x64** 上完成最终测试：通用 27 项、MCP 协议 9 项、WinForms 39 项、WPF 30 项通过；Claude Code 2.1.329 的用户级安装、重复安装及移走解压目录后的跨目录 MCP 连接通过；个人 Skills 文件安装已检查，模型触发尚未验证。发布包在含中文和空格的路径中由 PowerShell 5.1 运行。Windows 10/11 实机、Claude 模型任务及真实业务客户端仍未验证。[本轮验收记录](docs/acceptance.md)、[通过的 Windows CI](https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44696758984)。
 
 本轮补齐控件筛选与状态、条件等待、多选/滑块/控件滚动、WPF 与原生键鼠矩阵，以及自包含集中测试包。Skill 和 MCP 均面向 Claude Code。
+
+新增人工辅导：模型卡住后交出操作权，接收文字说明或短段示范，恢复后依据新界面继续任务，并将验证后的方法保存为个人客户端 Skill。首个业务目标为 Windows 10 x64 上的企业微信联系人聊天，真实客户端验收独立于通用工具测试。[人工辅导说明](docs/human-guidance.md)。
 
 **在 Windows 安装使用：** 获取 `windows-cu-win-x64.zip`，完整解压，双击 `Setup-Claude.cmd` 安装到当前用户的 Claude Code，然后在日常工作目录启动或重启 `claude`。`Start-Test.cmd` 是独立的自动诊断入口。[集中测试步骤](docs/windows-testing.md)。
 
@@ -16,6 +18,8 @@
 | `src/WindowsComputerUse.Worker` | Windows 用户会话中的 Win32 / UIA3 / 键鼠 / 截图执行进程 |
 | `src/WindowsComputerUse.Core` | 数据结构、动作参数检查、短期引用、坐标映射 |
 | `.claude/skills/windows-desktop` | Claude Code 通用桌面操作 Skill |
+| `.claude/skills/windows-guide` | 人工辅导、操作权交接与经验保存 |
+| `.claude/skills/wecom-desktop` | 企业微信联系人聊天；真实客户端待验收 |
 | `.claude/skills/cu-demo-orders` | Claude Code 示例客户端 Skill |
 | `templates/claude-client-skill` | 未安装的 Claude Code 客户端 Skill 模板 |
 | `samples/CuDemo` | 带查询、旧结果、弹窗、自绘图形的 WinForms 测试客户端 |
@@ -53,7 +57,7 @@
 .\scripts\Install-Claude.ps1
 ```
 
-安装器将完整程序复制到 `%LOCALAPPDATA%\WindowsComputerUse\versions\...`，用官方 `claude mcp add --scope user` 注册 `windows_cu`，并将两个 Skill 放入 `%USERPROFILE%\.claude\skills\`。设置了 `CLAUDE_CONFIG_DIR` 时使用对应的个人 Skills 目录。重复安装会更新本产品的 MCP 和 Skill，保留其他配置，并备份同名旧 Skill。
+安装器将完整程序复制到 `%LOCALAPPDATA%\WindowsComputerUse\versions\...`，用官方 `claude mcp add --scope user` 注册 `windows_cu`，并将四个内置 Skill 放入 `%USERPROFILE%\.claude\skills\`。设置了 `CLAUDE_CONFIG_DIR` 时使用对应的个人 Skills 目录。重复安装会更新本产品的 MCP 和 Skill，保留其他配置，并备份同名旧 Skill。
 
 安装后，在你平时的工作目录启动或重启 `claude`，使用 `/mcp` 确认连接，再直接描述桌面任务。不需要进入工程或解压目录，也不需要手动启动 MCP Server；安装后解压目录可移动或删除。具体程序位置保存在 `%LOCALAPPDATA%\WindowsComputerUse\installation.json`。
 
@@ -162,4 +166,4 @@ WGC 失败使对应测试失败，不用其他截图后端掩盖。已知颜色�
 
 ## 下一步
 
-继续在 Windows 10/11 上验证兼容性和 Claude Code 实际会话，再选择首个真实客户端。当前 CI 已验证的范围见验收记录；虚拟化表格、事件驱动等待、更多客户端和完整安全治理尚未完成。
+继续在 Windows 10/11 上验证兼容性和 Claude Code 实际会话，首个真实客户端已定为企业微信（指定联系人聊天）。当前 CI 已验证的范围见验收记录；虚拟化表格、事件驱动等待、更多客户端和完整安全治理尚未完成。

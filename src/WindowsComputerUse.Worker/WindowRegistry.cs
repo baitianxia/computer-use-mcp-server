@@ -44,7 +44,7 @@ internal sealed class WindowRegistry
         return current;
     }
 
-    private WindowInfo Describe(nint hwnd)
+    internal WindowInfo Describe(nint hwnd)
     {
         Native.GetWindowThreadProcessId(hwnd, out uint pid);
         if (pid == 0 || !Native.GetWindowRect(hwnd, out var rect)) throw new DesktopException("stale_window", "Window disappeared.");

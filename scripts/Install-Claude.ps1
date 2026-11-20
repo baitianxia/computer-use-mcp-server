@@ -81,7 +81,7 @@ try {
 
     $skillRoot = Join-Path $claudeDirectory 'skills'
     New-Item -ItemType Directory -Force $skillRoot | Out-Null
-    foreach ($name in @('windows-desktop','cu-demo-orders')) {
+    foreach ($name in @('windows-desktop','windows-guide','wecom-desktop','cu-demo-orders')) {
         $source = Join-Path $destination ".claude/skills/$name"
         $target = Join-Path $skillRoot $name
         $skillStage = Join-Path $InstallRoot ('.skill-' + [Guid]::NewGuid().ToString('N'))
@@ -98,7 +98,7 @@ try {
     $health = Claude-Command -parameters @('mcp','get','windows_cu')
     $connected = $health.code -eq 0 -and $health.output -match 'Connected' -and $health.output -notmatch 'Failed to connect|Pending approval'
     $receipt = @{ installedAt = [DateTime]::UtcNow.ToString('o'); sourceCommit = $manifest.sourceCommit; installDirectory = $destination;
-        server = $server; mcpScope = 'user'; skillsDirectory = $skillRoot; skills = @('windows-desktop','cu-demo-orders');
+        server = $server; mcpScope = 'user'; skillsDirectory = $skillRoot; skills = @('windows-desktop','windows-guide','wecom-desktop','cu-demo-orders');
         cliConnected = $connected; modelTaskVerified = $false; backups = $backup }
     Save-Json (Join-Path $InstallRoot 'installation.json') $receipt
     Write-Host "Installed program: $destination"

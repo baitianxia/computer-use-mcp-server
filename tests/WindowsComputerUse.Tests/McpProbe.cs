@@ -17,6 +17,8 @@ internal sealed partial class McpProbe : IDisposable
         { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         if (path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) info.ArgumentList.Add(path);
         info.Environment["WINDOWS_CU_LOG_DIR"] = Path.Combine(reportDirectory, "logs");
+        info.Environment["WINDOWS_CU_GUIDANCE_DIR"] = Path.Combine(reportDirectory, "guidance-data");
+        info.Environment["CLAUDE_CONFIG_DIR"] = Path.Combine(reportDirectory, "guidance-claude");
         server = Process.Start(info) ?? throw new Exception("Could not start MCP server.");
         server.ErrorDataReceived += (_, e) => { if (e.Data is not null) Console.Error.WriteLine(e.Data); };
         server.BeginErrorReadLine();
@@ -82,7 +84,7 @@ internal sealed partial class McpProbe : IDisposable
             await probe.server.StandardInput.WriteLineAsync("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}");
             var listed = await probe.Request("tools/list");
             var tools = listed.GetProperty("tools").EnumerateArray().ToDictionary(t => t.GetProperty("name").GetString()!, t => t.Clone());
-            foreach (var name in new[] { "list_windows", "inspect_window", "capture_window", "perform_action", "wait_for", "stop" })
+            foreach (var name in new[] { "list_windows", "inspect_window", "capture_window", "perform_action", "wait_for", "stop", "guide_task", "read_guidance", "save_client_skill" })
                 probe.Record("Tool schema " + name, tools.ContainsKey(name) && tools[name].GetProperty("inputSchema").GetProperty("type").GetString() == "object", "discovered through MCP tools/list");
             var rejected = Payload(await probe.Tool("perform_action", new { request = new ActionRequest("missing", "click", "background_only") }, true));
             probe.Record("Background request never silently becomes input", rejected.GetProperty("error").GetProperty("code").GetString() == "foreground_required", "structured error from MCP tool call");
