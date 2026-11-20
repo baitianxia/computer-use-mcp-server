@@ -1,0 +1,6 @@
+{
+  "version": "2.1.329 (Claude Code)",
+  "connected": true,
+  "modelTaskVerified": false,
+  "scope": "isolated CLI MCP health check; no model authentication or model task"
+}

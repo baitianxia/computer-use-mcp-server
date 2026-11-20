@@ -1,0 +1,194 @@
+{
+  "timestamp": "2026-11-20T07:24:35.4457678+00:00",
+  "sourceCommit": "95283d648682fa2a4fa2fc7f10adc161874f339b",
+  "os": "Microsoft Windows 10.0.26100",
+  "architecture": "X64",
+  "userInteractive": true,
+  "scope": "WPF/UIA/native input/background matrix",
+  "passed": true,
+  "groups": [
+    {
+      "name": "Selectors and wait conditions",
+      "status": "passed"
+    },
+    {
+      "name": "Native UIA patterns",
+      "status": "passed"
+    },
+    {
+      "name": "Background operations and occluded capture",
+      "status": "passed"
+    },
+    {
+      "name": "Native pointer operations",
+      "status": "passed"
+    }
+  ],
+  "checks": [
+    {
+      "name": "Window selector combines process, PID and title",
+      "passed": true,
+      "evidence": "[{\u0022windowRef\u0022:\u002278d3dc7836044d57b55342186b50a38c\u0022,\u0022identity\u0022:{\u0022handle\u0022:262546,\u0022processId\u0022:8632,\u0022processStartedUtcTicks\u0022:639307562294202457},\u0022title\u0022:\u0022CU WPF Controls\u0022,\u0022processName\u0022:\u0022CuWpfDemo\u0022,\u0022executablePath\u0022:\u0022D:\\\\a\\\\_temp\\\\Windows CU \\u6D4B\\u8BD5\\u5305\\\\wpf\\\\CuWpfDemo.exe\u0022,\u0022ownerHandle\u0022:0,\u0022bounds\u0022:{\u0022x\u0022:102,\u0022y\u0022:20,\u0022width\u0022:820,\u0022height\u0022:680},\u0022minimized\u0022:false,\u0022foreground\u0022:true,\u0022className\u0022:\u0022HwndWrapper[CuWpfDemo;;81a53512-5759-48e1-8611-d327e3bb974e]\u0022,\u0022dpi\u0022:96}]"
+    },
+    {
+      "name": "Filtered inspection returns one observed control",
+      "passed": true,
+      "evidence": "matched AutomationId AND control type"
+    },
+    {
+      "name": "Value wait verifies exact Unicode data",
+      "passed": true,
+      "evidence": "WPF \u4E2D\u6587\uD83D\uDE00"
+    },
+    {
+      "name": "Read-only control refuses mutation",
+      "passed": true,
+      "evidence": "UIA read-only guard"
+    },
+    {
+      "name": "DoesNotExist: absent",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "Truncated tree cannot prove absence",
+      "passed": true,
+      "evidence": "depth=0, maxNodes=1"
+    },
+    {
+      "name": "Wait follows asynchronous UI update",
+      "passed": true,
+      "evidence": "fixture timer completed"
+    },
+    {
+      "name": "DelayedButton: enabled",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "OptionToggle: toggle_on",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "OptionToggle: toggle_off",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "Choice01: selected",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "Choice02: selected",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "Choice01: selected",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "Choice01: unselected",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "OrdersFolder: expanded",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "PendingOrders: exists",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "OrdersFolder: collapsed",
+      "passed": true,
+      "evidence": "fresh UIA predicate through MCP"
+    },
+    {
+      "name": "RangeValue changes and exposes limits",
+      "passed": true,
+      "evidence": "{\u0022readOnly\u0022:false,\u0022rangeValue\u0022:73,\u0022rangeMinimum\u0022:0,\u0022rangeMaximum\u0022:100}"
+    },
+    {
+      "name": "Out of range value is not executed",
+      "passed": true,
+      "evidence": "101 outside 0..100"
+    },
+    {
+      "name": "ScrollPattern moves the list",
+      "passed": true,
+      "evidence": "{\u0022horizontalScrollPercent\u0022:-1,\u0022verticalScrollPercent\u0022:30.434782608695652}"
+    },
+    {
+      "name": "ScrollItem brings last item into view",
+      "passed": true,
+      "evidence": "Choice30 visible"
+    },
+    {
+      "name": "Background UIA writes exact value",
+      "passed": true,
+      "evidence": "separate demo owns foreground"
+    },
+    {
+      "name": "WGC captures covered WPF window",
+      "passed": true,
+      "evidence": "WPF green surface detected at (403, 480); foreground cover window overlaps entire target"
+    },
+    {
+      "name": "Background focus sampling detects no foreground change",
+      "passed": true,
+      "evidence": "157 samples, 0 mismatches, maximum interval 26 ms; sampling is not a continuous guarantee"
+    },
+    {
+      "name": "SendInput Move",
+      "passed": true,
+      "evidence": "Move=1 Double=0 Right=0 Wheel=0 Drag=0"
+    },
+    {
+      "name": "SendInput Double",
+      "passed": true,
+      "evidence": "Move=1 Double=1 Right=0 Wheel=0 Drag=0"
+    },
+    {
+      "name": "SendInput Right",
+      "passed": true,
+      "evidence": "Move=1 Double=1 Right=1 Wheel=0 Drag=0"
+    },
+    {
+      "name": "SendInput Wheel",
+      "passed": true,
+      "evidence": "Move=1 Double=1 Right=1 Wheel=-120 Drag=0"
+    },
+    {
+      "name": "SendInput Drag",
+      "passed": true,
+      "evidence": "Move=21 Double=1 Right=1 Wheel=-120 Drag=1"
+    },
+    {
+      "name": "Resize invalidates captured coordinates",
+      "passed": true,
+      "evidence": "no input sent to resized window"
+    }
+  ],
+  "virtualScreen": {
+    "x": 0,
+    "y": 0,
+    "width": 1024,
+    "height": 768,
+    "monitors": 1
+  },
+  "notRun": [
+    "Claude model-driven tasks",
+    "Real business client",
+    "Physical multi-monitor DPI changes",
+    "Simultaneous human keyboard/mouse use",
+    "Capture during active resize",
+    "HDR display"
+  ]
+}

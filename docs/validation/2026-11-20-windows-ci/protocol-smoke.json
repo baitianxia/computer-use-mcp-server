@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-11-20T07:23:40.1535547+00:00",
+  "os": "Microsoft Windows 10.0.26100",
+  "osArchitecture": "X64",
+  "processArchitecture": "X64",
+  "userInteractive": true,
+  "sessionId": 2,
+  "sourceCommit": "95283d648682fa2a4fa2fc7f10adc161874f339b",
+  "scope": "MCP protocol only",
+  "passed": true,
+  "checks": [
+    {
+      "name": "MCP initialize",
+      "passed": true,
+      "evidence": "2025-06-18"
+    },
+    {
+      "name": "Tool schema list_windows",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema inspect_window",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema capture_window",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema perform_action",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema wait_for",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Tool schema stop",
+      "passed": true,
+      "evidence": "discovered through MCP tools/list"
+    },
+    {
+      "name": "Background request never silently becomes input",
+      "passed": true,
+      "evidence": "structured error from MCP tool call"
+    },
+    {
+      "name": "Invalid capture backend is rejected before desktop access",
+      "passed": true,
+      "evidence": "structured capture validation from MCP tool call"
+    }
+  ],
+  "claudeCodeIntegrationVerified": false,
+  "remaining": [
+    "Claude Code /mcp and Skill discovery",
+    "Claude-driven visual fallback (fixture pixels are detected deterministically)",
+    "Windows 10/11, occlusion, multi-monitor DPI and in-flight resize validation",
+    "Continuous foreground noninterference",
+    "Real business client acceptance"
+  ]
+}

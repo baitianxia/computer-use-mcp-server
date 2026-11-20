@@ -1,0 +1,60 @@
+{
+  "sourceCommit": "95283d648682fa2a4fa2fc7f10adc161874f339b",
+  "workflowRunId": 44694395792,
+  "jobId": 136147569440,
+  "workflowUrl": "https://github.com/baitianxia/computer-use-mcp-server/actions/runs/44694395792",
+  "evidenceArtifact": {
+    "id": 14610416140,
+    "sha256": "a149f65ae4ca306cf32d6a52d071d9e022703f39fb56cad539bcad50608412af"
+  },
+  "bundleArtifact": {
+    "id": 14609563306,
+    "sha256": "bb613c182a2f6dfefdef213d876ec8d8217bb43637b8c21dbbfb0bd95e12d830"
+  },
+  "files": [
+    {
+      "path": "summary.json",
+      "sha256": "b7914ec7379b6c8804f7d701bf93b081defe0a7e291e810f8be1eac057cb6fe9"
+    },
+    {
+      "path": "protocol-smoke.json",
+      "sha256": "d58c47a138a241b0fd2827bdd98871f34f262557dd4905e66493ff92249647eb"
+    },
+    {
+      "path": "windows-smoke.json",
+      "sha256": "7ffed69518fb75c4f55446bd451a31d2027f6fabd444aece36c4b2be1abbe083"
+    },
+    {
+      "path": "windows-matrix.json",
+      "sha256": "c91adb7e2997b59b8ca2fab068a16ce292748148758ace0b1adb2dc568745846"
+    },
+    {
+      "path": "claude-connection.json",
+      "sha256": "bdf5f9b522184fdf2d21dec928fad9cc4ff2d4e2959116246ffc6a65e7762f16"
+    },
+    {
+      "path": "demo-capture.png",
+      "sha256": "eb1ea4449628d19a8759c76531806c492cc59fc78bfbc6efe86090bf860c7ad4"
+    },
+    {
+      "path": "demo-moved-scaled.png",
+      "sha256": "e2b707b6bea6fe55da520ccd6ff7ed75d12a506efc46e5262523aa54355a5289"
+    },
+    {
+      "path": "wpf-occluded.png",
+      "sha256": "eaaaa6c5dfc962bde16845260256d64fbb797750da093002093a57a496036e0f"
+    },
+    {
+      "path": "wpf-final.png",
+      "sha256": "9017ec75757a72ba0c9bc054d693ef9cf57f5c2b80622f2741e7b65b415f514e"
+    }
+  ],
+  "windowsTestPackage": {
+    "file": "windows-cu-win-x64.zip",
+    "bytes": 259545974,
+    "sha256": "d7487363f3f54a383190b98a8a1901af7d4db178a3adb178f9703c0c26103fa6",
+    "sourceCommit": "95283d648682fa2a4fa2fc7f10adc161874f339b",
+    "runtime": "win-x64",
+    "manifestFilesVerified": 1424
+  }
+}

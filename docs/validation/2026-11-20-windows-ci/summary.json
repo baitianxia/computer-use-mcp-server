@@ -1,0 +1,62 @@
+{
+    "timestamp":  "2026-11-20T07:24:36.8192168Z",
+    "sourceCommit":  "95283d648682fa2a4fa2fc7f10adc161874f339b",
+    "environment":  {
+                        "userInteractive":  true,
+                        "claudeVersion":  null,
+                        "processArchitecture":  "AMD64",
+                        "powerShell":  "5.1.26100.33648",
+                        "sessionId":  2,
+                        "os":  "Microsoft Windows NT 10.0.26100.0"
+                    },
+    "automated":  {
+                      "passed":  5,
+                      "failed":  0,
+                      "notRun":  0,
+                      "total":  5,
+                      "results":  [
+                                      {
+                                          "name":  "preflight",
+                                          "status":  "passed",
+                                          "error":  null
+                                      },
+                                      {
+                                          "name":  "portable",
+                                          "status":  "passed",
+                                          "exitCode":  0,
+                                          "elapsedMs":  1741,
+                                          "error":  null
+                                      },
+                                      {
+                                          "name":  "protocol",
+                                          "status":  "passed",
+                                          "exitCode":  0,
+                                          "elapsedMs":  719,
+                                          "error":  null
+                                      },
+                                      {
+                                          "name":  "winforms",
+                                          "status":  "passed",
+                                          "exitCode":  0,
+                                          "elapsedMs":  8736,
+                                          "error":  null
+                                      },
+                                      {
+                                          "name":  "wpf-matrix",
+                                          "status":  "passed",
+                                          "exitCode":  0,
+                                          "elapsedMs":  46556,
+                                          "error":  null
+                                      }
+                                  ],
+                      "blocked":  0
+                  },
+    "claudeModelVerified":  false,
+    "realClientVerified":  false,
+    "manualNotRun":  [
+                         "Claude Code: run Setup-Claude.cmd, then /mcp and /windows-desktop. Verify one natural-language task in a new session.",
+                         "Real client: identify the app, complete one representative task, verify the requested identifier and final business data.",
+                         "Display coverage: multiple monitors/DPI, HDR and resizing while capture is active require the corresponding hardware/manual checks.",
+                         "Background coexistence: sampled focus checks do not prove uninterrupted operation while a human is using mouse/keyboard."
+                     ]
+}
