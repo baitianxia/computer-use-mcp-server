@@ -264,7 +264,14 @@ function Get-ClientDialogSummary([int]$clientId) {
 
 function Get-TestAccountAudit {
     $log=@{ query='unavailable'; events=@(); successfulRemoteInteractive=$false; limitReached=$false }
-    $time=([datetimeoffset]$r.startedUtc).UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+    $since=$r.startedUtc
+    if ($r.processCa) {
+        # The fixture separately validates the new account with one local network logon.
+        # Scope this audit to the actual RDP attempt; both can generate logon type 3.
+        if (!$r.processCa.rdpAuditStartsUtc) { $log.query='positive-rdp-not-started'; return $log }
+        $since=$r.processCa.rdpAuditStartsUtc
+    }
+    $time=([datetimeoffset]$since).UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ')
     $nameTests=@($userName,$userName.ToLowerInvariant(),$userName.ToUpperInvariant()) | ForEach-Object { "Data[@Name='TargetUserName']='$_'" }
     $who="Data[@Name='TargetUserSid']='$sid' or "+($nameTests -join ' or ')
     $query="*[System[(EventID=4624 or EventID=4625) and TimeCreated[@SystemTime >= '$time']] and EventData[$who]]"
@@ -356,7 +363,10 @@ try {
         Initialize-ProcessCaClient
         $machine=[ProcessCaRdpClient]::VerifiedLocalMachineName()
         $r.processCa=@{ endpoint='127.0.0.1:3389'; verificationNameSource='verified-machine-name'; security='nla'; certificatePolicy='deny';
-            negative=$null; loopbackConnectionObserved=$false; positiveTags=@(); positiveExitCode=$null }
+            negative=$null; stdinProbe=$null; localCredentialCheck=$null; rdpAuditStartsUtc=$null; loopbackConnectionObserved=$false; positiveTags=@(); positiveExitCode=$null }
+        Write-State 'check-raw-stdin-transport'
+        $r.processCa.stdinProbe=Test-ProcessCaStdin (Join-Path $PSHOME powershell.exe) $env:TEMP
+        if ($r.processCa.stdinProbe.current -ne 'exact') { throw 'The raw stdin sentinel did not match its expected bytes and LF.' }
         # A known host, extra CA, or vendor config could silently add an alternate trust source.
         foreach ($base in @([Environment]::GetFolderPath('ApplicationData'),[Environment]::GetFolderPath('CommonApplicationData'),'C:\msys64\ucrt64\etc')) {
             $existingConfig=Join-Path $base 'freerdp'
@@ -420,7 +430,12 @@ try {
         Write-State 'reject-wrong-process-trust'
         $r.processCa.negative=Test-ProcessCaRejection $machine $tag $negativePem $emptyCaDir
         if (!$r.processCa.negative.confirmed) { throw 'Negative control did not explicitly reject the same endpoint certificate.' }
+        Write-State 'check-new-local-account-once'
+        $err=[ProcessCaRdpClient]::ValidateTemporaryAccount($userName,$secret)
+        $r.processCa.localCredentialCheck=@{ succeeded=($err -eq 0); win32Error=$err; logonType=3 }
+        if ($err -ne 0) { throw 'Windows rejected the local credential validation for the temporary account.' }
         Write-State 'ordinary-process-ca-logon'
+        $r.processCa.rdpAuditStartsUtc=[datetime]::UtcNow.ToString('o')
         $wrapper=Start-ProcessCaClient $machine $userName $pem $emptyCaDir $passwordBytes
         $client=$wrapper.Client
     } else {
