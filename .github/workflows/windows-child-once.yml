@@ -116,7 +116,7 @@ jobs:
           export LC_ALL=C
           pkg=mingw-w64-ucrt-x86_64-freerdp
           pacman -Qi "$pkg" > evidence/rdp-client-package.txt
-          grep -Eq '^Validated By[[:space:]]*:[[:space:]]*Signature' evidence/rdp-client-package.txt
+          awk -F: '/^Validated By[[:space:]]*:/ { n=split($2, methods, /[[:space:]]+/); for (i=1; i<=n; i++) if (methods[i]=="Signature") signed=1 } END { exit !signed }' evidence/rdp-client-package.txt
           sha256sum /ucrt64/bin/sdl-freerdp.exe >> evidence/rdp-client-package.txt
       - name: Verify the connection from a parent logged in after enablement
         if: ${{ !cancelled() && steps.bundle.outcome == 'success' && steps.existing_parent.outputs.connected != 'true' }}
