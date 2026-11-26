@@ -4,7 +4,7 @@ param([Parameter(Mandatory)][string]$BundleRoot, [Parameter(Mandatory)][Validate
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted' -or $env:RUNNER_OS -cne 'Windows') { throw 'Requires a disposable hosted Windows runner.' }
 function Record-State([string]$stage, $rdp = $null, $reason = $null) {
-    $data = @{ stage=$stage; state=$rdp; extendedDisconnectReason=$reason; eventHook=$eventHook; utc=[DateTime]::UtcNow.ToString('o') } | ConvertTo-Json
+    $data = @{ stage=$stage; state=$rdp; extendedDisconnectReason=$reason; eventHooks=$eventHooks; targetSource='operating-system-machine-name'; checkedAddressCount=$checkedAddressCount; utc=[DateTime]::UtcNow.ToString('o') } | ConvertTo-Json
     $tmp = "$StatePath.$PID.tmp"
     [IO.File]::WriteAllText($tmp,$data)
     if ([IO.File]::Exists($StatePath)) { [IO.File]::Replace($tmp,$StatePath,[Management.Automation.Language.NullString]::Value) } else { [IO.File]::Move($tmp,$StatePath) }
@@ -19,12 +19,31 @@ using System.Security;
 public static class LocalParentPassword {
     [ComImport, Guid("C1E6743A-41C1-4A74-832A-0DD06C1C7A0E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IPassword { void PutClearTextPassword(IntPtr bstr); }
-    public static void WatchDisconnect(object control, string file) {
-        Action<int> callback = delegate(int reason) {
-            try { File.WriteAllText(file, reason.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
+    // DISPIDs and signatures are from the inbox IMsTscAxEvents type library.
+    public static void Watch(object control, int dispid, bool numeric, string file) {
+        Action<string> record = delegate(string code) {
+            try { File.AppendAllText(file, dispid + " " + code + Environment.NewLine); }
             catch (IOException) { }
         };
-        ComEventsHelper.Combine(control, new Guid("336D5562-EFA8-482E-8CB3-C5C0FC7A7DB6"), 4, callback);
+        Delegate callback;
+        if (numeric) callback = new Action<int>(delegate(int code) { record(code.ToString(System.Globalization.CultureInfo.InvariantCulture)); });
+        else callback = new Action(delegate() { record("-"); });
+        ComEventsHelper.Combine(control, new Guid("336D5562-EFA8-482E-8CB3-C5C0FC7A7DB6"), dispid, callback);
+    }
+    public static bool AddressesAreLocal(System.Net.IPAddress[] resolved, System.Net.IPAddress[] local) {
+        if (resolved == null || resolved.Length == 0) return false;
+        foreach (var raw in resolved) {
+            var address = raw.IsIPv4MappedToIPv6 ? raw.MapToIPv4() : raw;
+            if (System.Net.IPAddress.IsLoopback(address)) continue;
+            bool found = false;
+            foreach (var item in local) {
+                var candidate = item.IsIPv4MappedToIPv6 ? item.MapToIPv4() : item;
+                if (address.Equals(candidate) && !address.Equals(System.Net.IPAddress.Any) &&
+                    !address.Equals(System.Net.IPAddress.IPv6Any)) { found = true; break; }
+            }
+            if (!found) return false;
+        }
+        return true;
     }
     public static void Apply(object control) {
         using (var secret = new SecureString()) {
@@ -52,11 +71,24 @@ try {
     $control=[ParallelDesktop.ChildRdpControl]::new(); $control.Dock='Fill'
     ([ComponentModel.ISupportInitialize]$control).BeginInit(); $form.Controls.Add($control); ([ComponentModel.ISupportInitialize]$control).EndInit()
     $form.Show(); [Windows.Forms.Application]::DoEvents()
-    $ocx=$control.GetOcx(); $phase='configure-localhost'; Record-State $phase
-    try { [LocalParentPassword]::WatchDisconnect($ocx,($StatePath+'.disconnect')); $eventHook=$true } catch { $eventHook=$false }
-    $ocx.Server='localhost'; $ocx.UserName=$TestUser; $ocx.Domain=[Environment]::MachineName
+    $ocx=$control.GetOcx(); $phase='verify-local-machine-target'; Record-State $phase
+    $machine=[Environment]::MachineName
+    if (!$machine -or $machine -ine [Net.Dns]::GetHostName()) { throw 'Local machine names disagree.' }
+    $local=@(foreach ($nic in [Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+        foreach ($item in $nic.GetIPProperties().UnicastAddresses) { $item.Address }
+    })
+    $resolved=[Net.Dns]::GetHostAddresses($machine)
+    if (![LocalParentPassword]::AddressesAreLocal($resolved,$local)) { throw 'Target does not resolve exclusively to local addresses.' }
+    $checkedAddressCount=$resolved.Length
+    $phase='configure-machine-rdp'; Record-State $phase
+    $eventHooks=[ordered]@{}
+    foreach ($id in @(1,2,3,4,10,18,19,22)) {
+        try { [LocalParentPassword]::Watch($ocx,$id,($id -in @(4,10,22)),($StatePath+'.events')); $eventHooks[[string]$id]=$true }
+        catch { $eventHooks[[string]$id]=$false }
+    }
+    $ocx.Server=$machine; $ocx.UserName=$TestUser; $ocx.Domain=[Environment]::MachineName
     $adv=$ocx.AdvancedSettings7; $adv.AuthenticationLevel=1; $adv.EnableCredSspSupport=$true
-    if ($ocx.Server -ne 'localhost' -or $adv.AuthenticationLevel -ne 1 -or !$adv.EnableCredSspSupport) { throw 'Strict loopback configuration did not persist.' }
+    if ($ocx.Server -ine $machine -or $adv.AuthenticationLevel -ne 1 -or !$adv.EnableCredSspSupport) { throw 'Strict loopback configuration did not persist.' }
     $phase='supply-ephemeral-credential'; Record-State $phase
     [LocalParentPassword]::Apply($ocx)
     $phase='ordinary-rdp-connect'; Record-State $phase

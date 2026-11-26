@@ -1,5 +1,5 @@
 # Run exclusively on a disposable GitHub-hosted Windows VM. The parent under test
-# signs in after child sessions are enabled. Only localhost and the test account are used.
+# signs in after child sessions are enabled. The target is the verified local machine name and the account is disposable.
 param([Parameter(Mandatory)][string]$BundleRoot, [Parameter(Mandatory)][string]$ReportPath,
     [ValidateRange(15,120)][int]$TimeoutSeconds = 75)
 $ErrorActionPreference='Stop'
@@ -9,7 +9,7 @@ $innerEvidence=[IO.Path]::ChangeExtension($target,'inner.json')
 $outerEvidence=[IO.Path]::ChangeExtension($target,'outer.json')
 $r=[ordered]@{ status='blocked'; stage='preflight'; detail=''; startedUtc=[datetime]::UtcNow.ToString('o'); hostScriptSha256=$null;
     runnerSessionId=$null; freshParentSessionId=$null; childSessionId=$null; initiallyEnabled=$null; outer=$null; innerStatus=$null;
-    outerDisconnectReason=$null; innerVerified=$false; cleanupErrors=@(); loginUi=@() }
+    outerDisconnectReason=$null; listenerCertificate=$null; outerEvents=@(); outerDialog=$null; testAccountLogons=$null; testAccountSessions=$null; innerVerified=$false; cleanupErrors=@(); loginUi=@() }
 $tag=[guid]::NewGuid().ToString('N').Substring(0,12)
 $userName='CUrdp'+$tag
 $taskName='CU-child-gate-'+$tag
@@ -28,13 +28,239 @@ function Write-State([string]$stage) {
 function Read-FileIfPresent([string]$path) {
     if ($path -and [IO.File]::Exists($path)) { return ([IO.File]::ReadAllText($path) | ConvertFrom-Json) }
 }
+function Get-LocalListenerCertificateReport {
+    # The CI image includes pwsh 7; the Windows PowerShell 5.1 caller lacks MatchesHostname
+    # and DisableCertificateDownloads. This offline diagnostic does not configure the RDP client.
+    $probe = {
+        $ErrorActionPreference = 'Stop'
+        $ProgressPreference = 'SilentlyContinue'
+        $r = [ordered]@{ status='listener-query-unavailable'; selfSigned=$null; matchesHostName=$null; matchesLocalhost=$null
+            chainBuild=$null; chainStatus=@(); certificateSource=$null; revocationMode='offline'; certificateDownloads=$false }
+        $cert=$null; $chain=$null; $cim=$null
+        try {
+            try {
+                $options=New-CimSessionOption -PacketPrivacy
+                $cim=New-CimSession -ComputerName localhost -SessionOption $options
+                $binding=Get-CimInstance -CimSession $cim -Namespace 'root/cimv2/TerminalServices' -ClassName Win32_TSGeneralSetting -Filter "TerminalName='RDP-tcp'" -Property SSLCertificateSHA1Hash,SSLCertificateSHA1HashType -OperationTimeoutSec 5
+                $id=$binding.SSLCertificateSHA1Hash
+                if ($binding.SSLCertificateSHA1HashType -eq 1) { $r.selfSigned=$true }
+                $r.status='listener-binding-unavailable'
+            } catch { }
+            if ($id -match '^[0-9a-f]{40}$') {
+                $r.status='bound-leaf-unavailable'
+                foreach ($store in @('Remote Desktop','My')) {
+                    $cert=Get-Item -LiteralPath ("Cert:\LocalMachine\{0}\{1}" -f $store,$id) -ErrorAction SilentlyContinue
+                    if ($cert -and $cert.Thumbprint -eq $id) { $r.certificateSource='listener-binding'; break }
+                    $cert=$null
+                }
+            } else {
+                $copies=@(Get-ChildItem -LiteralPath 'Cert:\LocalMachine\Remote Desktop' -ErrorAction SilentlyContinue | Where-Object {
+                    $_.MatchesHostname([Environment]::MachineName,$true,$true)
+                })
+                if ($copies.Count -eq 1) { $cert=$copies[0]; $r.certificateSource='candidate-unconfirmed'; $r.selfSigned=$null }
+            }
+            if ($cert) {
+                    $r.status='name-check-unavailable'
+                    $r.matchesHostName=$cert.MatchesHostname([Environment]::MachineName,$true,$true)
+                    $r.matchesLocalhost=$cert.MatchesHostname('localhost',$true,$true)
+                    $r.status='chain-check-unavailable'
+                    $chain=[Security.Cryptography.X509Certificates.X509Chain]::new()
+                    $chain.ChainPolicy.DisableCertificateDownloads=$true
+                    $chain.ChainPolicy.RevocationMode='Offline'
+                    $r.chainBuild=$chain.Build($cert)
+                    $r.chainStatus=@($chain.ChainStatus | ForEach-Object { $_.Status.ToString() })
+                    if ($null -eq $r.selfSigned -and $r.chainBuild -and $chain.ChainElements.Count -gt 1 -and $cert.Subject -ine $cert.Issuer) { $r.selfSigned=$false }
+                    $r.status=if ($r.certificateSource -eq 'listener-binding') { 'observed' } else { 'candidate-unconfirmed' }
+            }
+        } catch { } finally {
+            if ($cim) { $cim.Dispose() }; if ($chain) { $chain.Dispose() }; if ($cert) { $cert.Dispose() }
+        }
+        [Console]::Out.WriteLine(($r | ConvertTo-Json -Compress))
+    }
+    $process=$null
+    try {
+        $pwsh = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell\7\pwsh.exe'
+        if (![IO.File]::Exists($pwsh)) { return @{ status='diagnostic-runtime-unavailable' } }
+        # Only the constant script is encoded. No machine, account, certificate or credential values enter arguments.
+        $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($probe.ToString()))
+        $start=[Diagnostics.ProcessStartInfo]::new($pwsh,('-NoLogo -NoProfile -NonInteractive -EncodedCommand '+$encoded))
+        $start.UseShellExecute=$false; $start.RedirectStandardOutput=$true; $start.RedirectStandardError=$true
+        $process=[Diagnostics.Process]::Start($start)
+        $stdout=$process.StandardOutput.ReadToEndAsync(); $null=$process.StandardError.ReadToEndAsync()
+        if (!$process.WaitForExit(15000)) { $process.Kill(); return @{status='diagnostic-timeout'} }
+        if ($process.ExitCode -ne 0) { return @{status='diagnostic-process-failed'} }
+        return ($stdout.GetAwaiter().GetResult() | ConvertFrom-Json -ErrorAction Stop)
+    } catch { return @{status='diagnostic-unavailable'} }
+    finally { if ($process) { $process.Dispose() } }
+}
+
+function Initialize-LocalRdpDiagnostics {
+    if (!('LocalRdpDiagnostics' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
+public static class LocalRdpDiagnostics {
+    private delegate bool WindowVisitor(IntPtr window, IntPtr ignored);
+    [DllImport("user32")] private static extern bool EnumWindows(WindowVisitor visitor, IntPtr param);
+    [DllImport("user32")] private static extern bool EnumChildWindows(IntPtr parent, WindowVisitor visitor, IntPtr param);
+    [DllImport("user32")] private static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32")] private static extern uint GetWindowThreadProcessId(IntPtr window, out int pid);
+    [DllImport("user32",CharSet=CharSet.Unicode)] private static extern int GetClassName(IntPtr window,StringBuilder text,int limit);
+    [DllImport("user32",CharSet=CharSet.Unicode)] private static extern IntPtr SendMessageTimeout(IntPtr window,uint msg,IntPtr limit,StringBuilder text,uint flags,uint time,out IntPtr result);
+    [StructLayout(LayoutKind.Sequential)] private struct Session { public int id; public IntPtr station; public int state; }
+    [DllImport("wtsapi32",CharSet=CharSet.Unicode,SetLastError=true)] private static extern bool WTSEnumerateSessions(IntPtr server,int zero,int version,out IntPtr items,out int count);
+    [DllImport("wtsapi32",CharSet=CharSet.Unicode,SetLastError=true)] private static extern bool WTSQuerySessionInformation(IntPtr server,int id,int field,out IntPtr data,out int size);
+    [DllImport("wtsapi32")] private static extern void WTSFreeMemory(IntPtr memory);
+    public sealed class OwnedSession {
+        public int id {get;set;} public int state {get;set;} public int protocol {get;set;}
+    }
+    private static string WtsText(int id,int field) {
+        IntPtr p; int size;
+        if (!WTSQuerySessionInformation(IntPtr.Zero,id,field,out p,out size)) return null;
+        try { return p != IntPtr.Zero && size >= 2 ? Marshal.PtrToStringUni(p) : null; }
+        finally { WTSFreeMemory(p); }
+    }
+    public static OwnedSession[] FindOwnSessions(string testUser,string testSid,int runnerId) {
+        IntPtr p; int count;
+        if (!WTSEnumerateSessions(IntPtr.Zero,0,1,out p,out count)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        var found = new List<OwnedSession>();
+        try {
+            int size = Marshal.SizeOf(typeof(Session));
+            for (int i=0;i<count;i++) {
+                var s = (Session)Marshal.PtrToStructure(IntPtr.Add(p,i*size),typeof(Session));
+                if (s.id<=0 || s.id==runnerId || !String.Equals(WtsText(s.id,5),testUser,StringComparison.OrdinalIgnoreCase)) continue;
+                string domain = WtsText(s.id,7);
+                if (!String.Equals(domain,Environment.MachineName,StringComparison.OrdinalIgnoreCase)) continue;
+                var account = new System.Security.Principal.NTAccount(domain,testUser);
+                var sid = (System.Security.Principal.SecurityIdentifier)account.Translate(typeof(System.Security.Principal.SecurityIdentifier));
+                if (sid.Value != testSid) continue;
+                var owned = new OwnedSession { id=s.id,state=s.state,protocol=-1 };
+                IntPtr data; int bytes;
+                if (WTSQuerySessionInformation(IntPtr.Zero,s.id,16,out data,out bytes)) {
+                    try { if (data!=IntPtr.Zero && bytes>=2) owned.protocol = Marshal.ReadInt16(data); }
+                    finally { WTSFreeMemory(data); }
+                }
+                found.Add(owned);
+            }
+        } finally { WTSFreeMemory(p); }
+        return found.ToArray();
+    }
+    public sealed class Summary {
+        public int visibleDialogs {get;set;}
+        public bool limitReached {get;set;}
+        public List<string> categories = new List<string>();
+        public List<string> errorCodes = new List<string>();
+        public void Classify(string text) {
+            if (Regex.IsMatch(text, @"certificate|identity of the remote computer|identity of the computer", RegexOptions.IgnoreCase)) Add("certificate-or-identity");
+            if (Regex.IsMatch(text, @"credentials|logon attempt failed|logon failure", RegexOptions.IgnoreCase)) Add("credentials-or-logon");
+            if (Regex.IsMatch(text, @"console session|already connected|another session|number of connections", RegexOptions.IgnoreCase)) Add("session-or-limit");
+            if (Regex.IsMatch(text, @"authentication error|security package|CredSSP", RegexOptions.IgnoreCase)) Add("authentication-error");
+            if (Regex.IsMatch(text, @"can't connect|cannot connect|could not connect|couldn't connect", RegexOptions.IgnoreCase)) Add("connection-failed");
+            foreach (Match m in Regex.Matches(text, @"\b(?:extended error code|error code|HRESULT|status)\s*[:=]\s*(0x[0-9a-f]{1,8}|[0-9]{1,10})\b", RegexOptions.IgnoreCase)) {
+                string code = m.Groups[1].Value;
+                if (!errorCodes.Contains(code) && errorCodes.Count < 8) errorCodes.Add(code);
+            }
+        }
+        private void Add(string category) { if (!categories.Contains(category)) categories.Add(category); }
+    }
+    private static bool MatchWindow(IntPtr w, int pid, string kind) {
+        int owner; GetWindowThreadProcessId(w, out owner);
+        if (owner != pid || !IsWindowVisible(w)) return false;
+        var name = new StringBuilder(64); GetClassName(w,name,name.Capacity);
+        return String.Equals(name.ToString(),kind,StringComparison.OrdinalIgnoreCase);
+    }
+    public static Summary Read(int pid) {
+        var data = new Summary();
+        int controls = 0;
+        var clock = Stopwatch.StartNew();
+        // Only static labels of this RDP process's visible Win32 dialogs; no edit controls.
+        EnumWindows(delegate(IntPtr w,IntPtr p) {
+            if (data.visibleDialogs >= 8 || clock.ElapsedMilliseconds > 1200) { data.limitReached = true; return false; }
+            if (!MatchWindow(w,pid,"#32770")) return true;
+            data.visibleDialogs++;
+            EnumChildWindows(w,delegate(IntPtr child, IntPtr ignored) {
+                if (controls >= 32 || clock.ElapsedMilliseconds > 1200) { data.limitReached = true; return false; }
+                if (!MatchWindow(child,pid,"Static")) return true;
+                controls++;
+                var text = new StringBuilder(768); IntPtr length;
+                if (SendMessageTimeout(child,0x000D,new IntPtr(text.Capacity),text,3,60,out length) != IntPtr.Zero)
+                    data.Classify(text.ToString());
+                return true;
+            },IntPtr.Zero);
+            return true;
+        },IntPtr.Zero);
+        return data;
+    }
+}
+'@
+    }
+}
+function Get-ClientDialogSummary([int]$clientId) {
+    Initialize-LocalRdpDiagnostics
+    $view=[LocalRdpDiagnostics]::Read($clientId)
+    return @{ visibleDialogs=$view.visibleDialogs; limitReached=$view.limitReached; categories=@($view.categories.ToArray()); errorCodes=@($view.errorCodes.ToArray()) }
+}
+
+function Get-TestAccountAudit {
+    $log=@{ query='unavailable'; events=@(); successfulRemoteInteractive=$false; limitReached=$false }
+    $time=([datetimeoffset]$r.startedUtc).UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+    $nameTests=@($userName,$userName.ToLowerInvariant(),$userName.ToUpperInvariant()) | ForEach-Object { "Data[@Name='TargetUserName']='$_'" }
+    $who="Data[@Name='TargetUserSid']='$sid' or "+($nameTests -join ' or ')
+    $query="*[System[(EventID=4624 or EventID=4625) and TimeCreated[@SystemTime >= '$time']] and EventData[$who]]"
+    try {
+        $entries=@(Get-WinEvent -LogName Security -FilterXPath $query -MaxEvents 33 -ErrorAction Stop)
+        $log.query='read'; $log.limitReached=($entries.Count -gt 32)
+        foreach ($entry in ($entries | Select-Object -First 32)) {
+            $data=@{}
+            foreach ($node in ([xml]$entry.ToXml()).Event.EventData.Data) { $data[$node.GetAttribute('Name')]=$node.InnerText }
+            if ($data.TargetUserSid -ne $sid -and $data.TargetUserName -ine $userName) { continue }
+            $item=@{ id=[int]$entry.Id; at=$entry.TimeCreated.ToUniversalTime().ToString('o') }
+            foreach ($key in @('LogonType','Status','SubStatus')) {
+                if ($data[$key] -match '^(?:\d{1,3}|0x[0-9a-fA-F]{1,8})$') { $item[$key]=$data[$key] }
+            }
+            if ($entry.Id -eq 4624 -and $item.LogonType -eq '10') { $log.successfulRemoteInteractive=$true }
+            $log.events+=@($item)
+        }
+    } catch { if ($_.FullyQualifiedErrorId -like 'NoMatchingEventsFound*') { $log.query='no-matching-records' } }
+    return $log
+}
+
+function Get-OuterEvents {
+    $map=@{1='OnConnecting';2='OnConnected';3='OnLoginComplete';4='OnDisconnected';10='OnFatalError';
+        18='OnAuthenticationWarningDisplayed';19='OnAuthenticationWarningDismissed';22='OnLogonError'}
+    if (!$outerPath -or ![IO.File]::Exists(($outerPath+'.events'))) { return }
+    try {
+        $stream=[IO.File]::Open(($outerPath+'.events'),[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
+        try { $reader=[IO.StreamReader]::new($stream); $lines=$reader.ReadToEnd() -split '\r?\n' }
+        finally { $stream.Dispose() }
+    } catch [IO.IOException] { return }
+    foreach ($line in ($lines | Select-Object -Last 32)) {
+        if ($line -notmatch '^(\d{1,2}) (-?\d{1,11}|-)$') { continue }
+        $id=[int]$Matches[1]; $value=$Matches[2]
+        if (!$map.ContainsKey($id)) { continue }
+        $item=@{ dispid=$id; name=$map[$id] }
+        if ($value -ne '-') { $code=0; if ([int]::TryParse($value,[ref]$code)) { $item.code=$code } }
+        $item
+    }
+}
+
+
 function Save-Observations {
     $r.loginUi=@(Get-Process -Name CredentialUIBroker,LogonUI -ErrorAction SilentlyContinue | ForEach-Object { @{name=$_.ProcessName; sessionId=$_.SessionId; pid=$_.Id} })
     if ($outerPath -and [IO.File]::Exists($outerPath)) {
         [IO.File]::Copy($outerPath,$outerEvidence,$true); $r.outer=Read-FileIfPresent $outerEvidence
     }
-    if ($outerPath -and [IO.File]::Exists(($outerPath+'.disconnect'))) {
-        $code=0; if ([int]::TryParse([IO.File]::ReadAllText(($outerPath+'.disconnect')),[ref]$code)) { $r.outerDisconnectReason=$code }
+    if ($account -and $client) {
+        $r.outerEvents=@(Get-OuterEvents)
+        $disconnected=@($r.outerEvents | Where-Object name -eq OnDisconnected)
+        if ($disconnected.Count) { $r.outerDisconnectReason=$disconnected[-1].code }
+        $r.testAccountLogons=Get-TestAccountAudit
+        $r.testAccountSessions=@([LocalRdpDiagnostics]::FindOwnSessions($userName,$sid,$r.runnerSessionId))
+        if (!$client.HasExited) { $r.outerDialog=Get-ClientDialogSummary $client.Id }
     }
     if ($innerPath -and [IO.File]::Exists($innerPath)) {
         [IO.File]::Copy($innerPath,$innerEvidence,$true); $r.innerStatus=(Read-FileIfPresent $innerEvidence).status
@@ -60,6 +286,8 @@ try {
     if ($r.runnerSessionId -le 0 -or ![Environment]::UserInteractive) { throw 'Requires the interactive hosted session.' }
     if ((Get-ItemPropertyValue 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' 'fDenyTSConnections') -ne 0 -or
         -not @(Get-NetTCPConnection -LocalPort 3389 -State Listen -ErrorAction SilentlyContinue).Count) { throw 'Ordinary RDP is not already enabled and listening on port 3389.' }
+    $r.listenerCertificate=Get-LocalListenerCertificateReport
+    Initialize-LocalRdpDiagnostics
     $BundleRoot=(Get-Item -LiteralPath $BundleRoot).FullName
     $hostFile=Join-Path $BundleRoot 'scripts/ChildSessionHost.ps1'
     $gateFile=Join-Path $PSScriptRoot 'Test-RdpChildConnection.ps1'
@@ -99,26 +327,23 @@ try {
     $clientScript=Join-Path $PSScriptRoot 'fixtures/Open-LocalRdpParent.ps1'
     $psi=[Diagnostics.ProcessStartInfo]::new($psExe,('-NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File "{0}" -TestUser {1} -BundleRoot "{2}" -StatePath "{3}"' -f $clientScript,$userName,$BundleRoot,$outerPath))
     $psi.UseShellExecute=$false; $psi.RedirectStandardInput=$true
-    Write-State 'ordinary-localhost-logon'
+    Write-State 'ordinary-machine-name-logon'
     $client=[Diagnostics.Process]::Start($psi)
     $pipe=$client.StandardInput.BaseStream
     try { $pipe.Write($passwordBytes,0,$passwordBytes.Length); $pipe.Flush() } finally { $pipe.Close(); [Array]::Clear($passwordBytes,0,$passwordBytes.Length); $secret.Dispose(); $secret=$null }
     $clock=[Diagnostics.Stopwatch]::StartNew()
     do {
         $outer=Read-FileIfPresent $outerPath
-        if (($outer -and $outer.stage -like 'failed-*') -or $client.HasExited) { throw 'The ordinary localhost RDP client stopped before a new authenticated desktop was confirmed.' }
-        # A real user shell supplies an independent SID + session check; never use a logon token as desktop evidence.
+        if (($outer -and $outer.stage -like 'failed-*') -or $client.HasExited) { throw 'The ordinary local RDP client stopped before a new authenticated desktop was confirmed.' }
+        if (@(Get-OuterEvents | Where-Object name -eq OnFatalError).Count) { throw 'The ordinary local RDP client reported OnFatalError.' }
         if ($outer -and $outer.state -eq 1) {
-            foreach ($shell in @(Get-CimInstance Win32_Process -Filter "Name='explorer.exe'")) {
-                if ($shell.SessionId -le 0 -or $shell.SessionId -eq $r.runnerSessionId) { continue }
-                $owner=Invoke-CimMethod -InputObject $shell -MethodName GetOwnerSid -ErrorAction SilentlyContinue
-                if ($owner -and $owner.ReturnValue -eq 0 -and $owner.Sid -eq $sid) { $sessionOwner=$shell; break }
-            }
+            $active=@([LocalRdpDiagnostics]::FindOwnSessions($userName,$sid,$r.runnerSessionId) | Where-Object { $_.state -eq 0 -and $_.protocol -eq 2 })
+            if ($active.Count -eq 1) { $sessionOwner=$active[0] }
         }
         if (!$sessionOwner) { Start-Sleep -Milliseconds 500 }
     } while (!$sessionOwner -and $clock.Elapsed.TotalSeconds -lt $TimeoutSeconds)
-    if (!$sessionOwner) { throw 'No distinct, authenticated parent shell appeared before the deadline. Strict server authentication remained enabled.' }
-    $r.freshParentSessionId=[int]$sessionOwner.SessionId
+    if (!$sessionOwner) { throw 'No connected ActiveX client with a distinct, authenticated active WTS/RDP parent desktop was confirmed before the deadline.' }
+    $r.freshParentSessionId=[int]$sessionOwner.id
     Write-State 'start-inner-check-on-authenticated-desktop'
     $principal=New-ScheduledTaskPrincipal -UserId $sid -LogonType Interactive -RunLevel Limited
     $act=New-ScheduledTaskAction -Execute $psExe -Argument ('-NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File "{0}" -BundleRoot "{1}" -ReportPath "{2}" -TimeoutSeconds {3}' -f $gate,$BundleRoot,$innerPath,$TimeoutSeconds)
@@ -148,11 +373,10 @@ finally {
     foreach ($action in @(
         { Save-Observations },
         { Stop-TestTask },
-        { if ($sessionOwner -and (Get-Process -Id $sessionOwner.ProcessId -ErrorAction SilentlyContinue)) {
-            $current=Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $sessionOwner.ProcessId)
-            if ($current -and $current.Name -ieq 'explorer.exe' -and $current.SessionId -eq $r.freshParentSessionId -and $current.SessionId -ne $r.runnerSessionId -and
-                (Invoke-CimMethod -InputObject $current -MethodName GetOwnerSid).Sid -eq $account.SID.Value) {
-                & logoff.exe $r.freshParentSessionId; if ($LASTEXITCODE -ne 0) { throw 'Fresh test user logoff failed.' }
+        { if ($account -and $client) {
+            foreach ($testSession in [LocalRdpDiagnostics]::FindOwnSessions($userName,$sid,$r.runnerSessionId)) {
+                & logoff.exe $testSession.id
+                if ($LASTEXITCODE -ne 0) { throw 'Fresh test user logoff failed.' }
             }
         } },
         { if ($client -and !$client.HasExited) { $client.Kill(); [void]$client.WaitForExit(5000) } },

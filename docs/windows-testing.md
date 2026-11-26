@@ -65,7 +65,7 @@
 
 连接检查会在启用子会话、显示预览、调用 ActiveX、核验 ID 和关闭预览前更新 JSON。若文件停在 `in_progress`，先看 `stage`、`hostOperation` 和 `lastHostObservation`，再打开同目录的 `rdp-child-connection.supervisor.json`。在刚启用功能的 GitHub 托管运行器上，如果探针连续观察到前台系统凭据窗口，RDP 仍在连接且 Windows 尚未分配子会话，监督报告会记录 `blocked / interactive_credentials_required`（退出码 2）。窗口所属进程不明确时会观察到时限。无明确原因的超时保留退出码 124。两种情况都保留连接阶段与事件。通过的连接报告必须是 `passed`，且 `rdpWtsBindingVerified` 和 `previewClosed` 都为真。
 
-在独立 CI 分支，若运行器原有的桌面连接受阻，测试会在已开启子会话的同一台运行器上创建一次性普通测试账号，使用已有的本机 RDP 监听器验证新登录的父桌面。测试要求外层父桌面、原运行器桌面和子桌面的会话 ID 两两不同。核对内部报告、脚本哈希和预览关闭结果后，才可判定该路径通过。外层测试结果在 `fresh-parent.json`，内部检查点在 `fresh-parent.inner.json`。
+在独立 CI 分支，若运行器原有的桌面连接受阻，测试会在已开启子会话的同一台运行器上创建一次性普通测试账号，使用已有的本机 RDP 监听器验证新登录的父桌面。外层客户端核对本机主机名解析到的每一个地址，并要求 Windows 成功验证服务器身份。诊断文件只记录监听器证书校验状态及本轮测试身份的登录事件类型和状态码。测试要求外层父桌面、原运行器桌面和子桌面的会话 ID 两两不同。核对内部报告、脚本哈希和预览关闭结果后，才可判定该路径通过。外层测试结果在 `fresh-parent.json`，内部检查点在 `fresh-parent.inner.json`。
 
 1. 在主桌面双击 **`Start-Parallel-Test.cmd`**。控制台会打印本轮报告路径。如果报告为 `blocked` 并提示 `Windows child sessions are disabled`，普通双击到此结束。要在自己的测试机上启用这项 Windows 设置，在解压目录打开**管理员 PowerShell**，运行 `.\Start-Parallel-Test.cmd -ChildSessionSupport Enable`。**首次启用后，先保存工作，再注销并重新登录 Windows**，然后用普通用户双击测试入口。使用智能卡或在本次登录后才启用子会话时，Windows 可能要求登录。若出现系统凭据窗口，只在 Windows 自己的登录界面输入凭据。设备策略不允许启用时，保留阻塞报告。[微软子会话登录说明](https://learn.microsoft.com/en-us/windows/win32/termserv/child-sessions)
 2. 等标题为 **Computer Use - child Windows desktop** 的窗口连接。在**这个窗口里面**打开文件资源管理器，按预览顶部给出的路径运行本轮 `Run-Child.cmd`（在 `test-results\parallel\本轮编号\` 内）。如果从主桌面误点，脚本会提示会话不符，可以回到子窗口重新打开。请保持子窗口连接；若以前的实验仍在这个子桌面打开了记事本、画图或 Edge 测试窗口，先关闭旧测试窗口。

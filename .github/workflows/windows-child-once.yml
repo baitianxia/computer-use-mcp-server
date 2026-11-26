@@ -76,7 +76,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Real ActiveX configuration failed.' }
       - name: Check the existing parent session after enabling child sessions
         id: existing_parent
-        if: ${{ !cancelled() && steps.bundle.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.bundle.outcome == 'success' && !contains(github.event.head_commit.message, '[fresh-parent]') }}
         timeout-minutes: 4
         run: |
           $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
