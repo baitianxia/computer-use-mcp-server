@@ -98,13 +98,38 @@ jobs:
             Write-Host 'The original parent requires interactive credentials. The connection gate remains open.'
           }
           exit 0
+      - name: Install the TLS client for the test parent
+        if: ${{ !cancelled() && steps.bundle.outcome == 'success' && contains(github.event.head_commit.message, '[client-ca]') }}
+        uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c # v2.34.0
+        with:
+          msystem: UCRT64
+          release: false
+          update: true
+          cache: false
+          install: mingw-w64-ucrt-x86_64-freerdp
+      - name: Record the test parent's RDP client
+        id: client_provenance
+        if: ${{ success() && contains(github.event.head_commit.message, '[client-ca]') }}
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          pkg=mingw-w64-ucrt-x86_64-freerdp
+          pacman -Qi "$pkg" > evidence/rdp-client-package.txt
+          grep -Eq '^Validated By[[:space:]]*:[[:space:]]*Signature' evidence/rdp-client-package.txt
+          sha256sum /ucrt64/bin/sdl-freerdp.exe >> evidence/rdp-client-package.txt
       - name: Verify the connection from a parent logged in after enablement
         if: ${{ !cancelled() && steps.bundle.outcome == 'success' && steps.existing_parent.outputs.connected != 'true' }}
         timeout-minutes: 5
         run: |
           $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
           $report = Join-Path $pwd 'evidence/fresh-parent.json'
-          & powershell.exe -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File ./tests/Invoke-FreshParentRdpCheck.ps1 -BundleRoot $bundle -ReportPath $report -TimeoutSeconds 75
+          $clientArgs = @()
+          if ('${{ contains(github.event.head_commit.message, '[client-ca]') }}' -eq 'true') {
+            if ('${{ steps.client_provenance.outcome }}' -ne 'success') { throw 'The TLS client provenance check did not pass.' }
+            $clientArgs += '-UseProcessCaFixture'
+          }
+          & powershell.exe -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File ./tests/Invoke-FreshParentRdpCheck.ps1 -BundleRoot $bundle -ReportPath $report -TimeoutSeconds 75 @clientArgs
           $rc = $LASTEXITCODE
           $r = Get-Content -LiteralPath $report -Raw -Encoding utf8 | ConvertFrom-Json
           if ($rc -ne 0 -or $r.status -ne 'passed') { throw "Fresh-parent check exited with $rc at $($r.stage): $($r.detail)" }
