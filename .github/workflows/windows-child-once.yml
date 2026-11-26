@@ -29,6 +29,8 @@ jobs:
             image = $env:ImageVersion
             sessionId = (Get-Process -Id $PID).SessionId
             interactive = [Environment]::UserInteractive
+            ordinaryRdpDisabled = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server').fDenyTSConnections
+            ordinaryRdpPortListening = [bool](Get-NetTCPConnection -State Listen -LocalPort 3389 -ErrorAction SilentlyContinue)
             services = @(Get-Service TermService,SessionEnv | Select-Object Name,@{n='status';e={$_.Status.ToString()}})
           }
           $sys | ConvertTo-Json -Depth 4 | Tee-Object -FilePath evidence/runner.json
@@ -54,7 +56,7 @@ jobs:
             if ($p.Length -ne $item.bytes -or (Get-FileHash -LiteralPath $p.FullName).Hash -ne $item.sha256) { throw "Manifest mismatch: $($item.path)" }
           }
           $hostSha = (Get-FileHash -LiteralPath (Join-Path $bundle 'scripts/ChildSessionHost.ps1')).Hash
-          if ($hostSha -ne '68c23981a632a4d50662d0c87c84e1b2ea7bb5e60eff982f9eb0e7a1eaf6ddbe') { throw 'RDP script differs from the candidate under investigation.' }
+          if ($hostSha -ne (Get-FileHash -LiteralPath 'scripts/ChildSessionHost.ps1').Hash) { throw 'Packaged RDP host differs from this commit.' }
           "Validated $($manifest.files.Count) package files, archive SHA-256 $sha, RDP host SHA-256 $hostSha"
       - name: Run Windows PowerShell lookup and simulated control regressions
         run: |
@@ -76,8 +78,9 @@ jobs:
         run: |
           $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
           $report = Join-Path $pwd 'evidence/rdp-child-connection.json'
-          & powershell.exe -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File ./tests/Test-RdpChildConnection.ps1 -BundleRoot $bundle -ReportPath $report -EnableOnHostedRunner
+          & ./tests/Invoke-RdpChildConnectionCheck.ps1 -BundleRoot $bundle -ReportPath $report -EnableOnHostedRunner -TimeoutSeconds 45 -ProcessTimeoutSeconds 70
           $rc = $LASTEXITCODE
+          Get-Content -LiteralPath 'evidence/rdp-child-connection.supervisor.json' -Raw -Encoding utf8
           $data = Get-Content -LiteralPath $report -Raw -Encoding utf8
           $data
           $r = $data | ConvertFrom-Json

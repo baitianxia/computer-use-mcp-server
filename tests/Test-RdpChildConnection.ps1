@@ -5,16 +5,54 @@ param(
     [ValidateRange(5,300)][int]$TimeoutSeconds = 90
 )
 $ErrorActionPreference = 'Stop'
+$target = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ReportPath)
+[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
 $report = [ordered]@{
     status = 'blocked'; stage = 'preflight'; detail = ''
+    startedUtc = [DateTime]::UtcNow.ToString('o')
     scope = 'RDP connection and WTS child session ID'; rdpWtsBindingVerified = $false
     os = [Environment]::OSVersion.VersionString; powershell = $PSVersionTable.PSVersion.ToString()
+    hostOperation = $null; lastHostObservation = $null
     parentSessionId = $null; childSessionId = $null; existingChildSessionId = $null
     initiallyEnabled = $null; enableAttempted = $false; previewClosed = $false
     cleanup = ''; testScriptSha256 = $null; hostScriptSha256 = $null
 }
+
+function Write-ConnectionReport([string]$RunningStage) {
+    $snapshot = [ordered]@{} + $report
+    $snapshot.updatedUtc = [DateTime]::UtcNow.ToString('o')
+    if ($RunningStage) {
+        $snapshot.status = 'in_progress'
+        $snapshot.stage = $RunningStage
+    }
+    # Keep the last complete JSON if a native call hangs or the process is killed.
+    $temp = "$target.$PID.tmp"
+    try {
+        [IO.File]::WriteAllText($temp, ($snapshot | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+        if ([IO.File]::Exists($target)) {
+            [IO.File]::Replace($temp, $target, [System.Management.Automation.Language.NullString]::Value)
+        } else {
+            [IO.File]::Move($temp, $target)
+        }
+    } finally {
+        if ([IO.File]::Exists($temp)) { [IO.File]::Delete($temp) }
+    }
+    if ($RunningStage) {
+        Write-Host "RDP child connection in_progress at $RunningStage [$($snapshot.hostOperation)] ($($snapshot.updatedUtc))."
+    }
+}
+
+function Start-ConnectionStage([string]$Stage) {
+    $report.stage = $Stage
+    $report.hostOperation = $null
+    Write-ConnectionReport $Stage
+}
+
 $child = $null
+$closingPreview = $false
+$traceOptions = @{}
 try {
+    Start-ConnectionStage 'preflight'
     $report.testScriptSha256 = (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash
     $hostScript = Join-Path $BundleRoot 'scripts/ChildSessionHost.ps1'
     $report.hostScriptSha256 = (Get-FileHash -LiteralPath $hostScript -Algorithm SHA256).Hash
@@ -33,32 +71,41 @@ try {
     }
 
     . $hostScript
-    $report.stage = 'child-session-support'
+    if ((Get-Command Open-ChildSessionHost).Parameters.ContainsKey('OnStage')) {
+        $traceOptions.OnStage = {
+            param([string]$Operation, [string]$Observation)
+            $report.hostOperation = $Operation
+            if ($Observation) { $report.lastHostObservation = $Observation }
+            if ($closingPreview) { Write-ConnectionReport 'close-preview' }
+            else { Write-ConnectionReport $report.stage }
+        }
+    }
+    Start-ConnectionStage 'child-session-support'
     $report.initiallyEnabled = Get-ChildSessionSupport
     if (-not $report.initiallyEnabled -and -not $EnableOnHostedRunner) {
         throw 'Child sessions are disabled.'
     }
-    $report.stage = 'check-existing-child'
+    Start-ConnectionStage 'check-existing-child'
     $existing = Get-ChildSessionId -Stage before-connect
     if ($null -ne $existing -and $existing -ne [uint32]::MaxValue) {
         $report.existingChildSessionId = $existing
         throw "A child session already exists (ID $existing). The connection test requires a fresh child session."
     }
     if (-not $report.initiallyEnabled) {
-        $report.stage = 'enable-on-hosted-runner'
         $report.enableAttempted = $true
         $report.cleanup = 'The disposable hosted VM and any child session will be removed at job termination.'
+        Start-ConnectionStage 'enable-on-hosted-runner'
         Set-ChildSessionSupport -Enabled $true
     }
 
     $report.status = 'failed'
-    $report.stage = 'connect-child'
-    $child = Open-ChildSessionHost -TimeoutSeconds $TimeoutSeconds
+    Start-ConnectionStage 'connect-child'
+    $child = Open-ChildSessionHost -TimeoutSeconds $TimeoutSeconds @traceOptions
     $report.childSessionId = $child.ChildSessionId
-    $report.stage = 'verify-bound-child'
+    Start-ConnectionStage 'verify-bound-child'
     if ($null -eq $report.childSessionId -or $report.childSessionId -le 0 -or
         $report.childSessionId -eq [uint32]::MaxValue -or $report.childSessionId -eq $report.parentSessionId -or
-        $child.ParentSessionId -ne $report.parentSessionId -or -not (Test-ChildSessionHostConnected -Child $child)) {
+        $child.ParentSessionId -ne $report.parentSessionId -or -not (Test-ChildSessionHostConnected -Child $child @traceOptions)) {
         throw 'The RDP control and WTS did not confirm a distinct, connected child session.'
     }
     $report.rdpWtsBindingVerified = $true
@@ -68,8 +115,11 @@ try {
     $report.detail = $_.Exception.Message
 } finally {
     if ($null -ne $child) {
+        $closingPreview = $true
+        $report.hostOperation = $null
         try {
-            Close-ChildSessionHost -Child $child
+            try { Write-ConnectionReport 'close-preview' }
+            finally { Close-ChildSessionHost -Child $child @traceOptions }
             if (-not $child.Form.IsDisposed) { throw 'The RDP preview was not disposed.' }
             $report.previewClosed = $true
             if (-not $report.cleanup) { $report.cleanup = 'Preview closed. The test did not log off the child session.' }
@@ -82,9 +132,7 @@ try {
             }
         }
     }
-    $target = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ReportPath)
-    [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
-    [IO.File]::WriteAllText($target, ($report | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+    Write-ConnectionReport
 }
 Write-Output "RDP child connection $($report.status) at $($report.stage): $($report.detail) Report: $target"
 if ($report.status -eq 'passed') { exit 0 }

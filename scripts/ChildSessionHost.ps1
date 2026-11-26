@@ -107,7 +107,13 @@ namespace ParallelDesktop {
         }
 
         public void ConnectLocalChild(int width, int height) {
+            ConnectLocalChild(width, height, null);
+        }
+
+        public void ConnectLocalChild(int width, int height, Action<string> onStage) {
+            if (onStage != null) onStage("rdp-configure");
             ConfigureLocalChild(width, height);
+            if (onStage != null) onStage("rdp-connect");
             DispatchControl("Connect", BindingFlags.InvokeMethod);
         }
 
@@ -155,18 +161,21 @@ function Set-ChildSessionSupport {
 }
 
 function Open-ChildSessionHost {
-    param([ValidateRange(5,300)][int]$TimeoutSeconds = 75, [string]$Instruction)
+    param([ValidateRange(5,300)][int]$TimeoutSeconds = 75, [string]$Instruction, [scriptblock]$OnStage)
+    if ($OnStage) { $null = & $OnStage 'host-support' }
     if (-not (Get-ChildSessionSupport)) {
         throw 'Windows child session support is disabled. See the parallel test guide for the optional administrator setup.'
     }
     if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.ApartmentState]::STA) {
         throw 'Open the child desktop from Windows PowerShell with -STA.'
     }
+    if ($OnStage) { $null = & $OnStage 'host-existing-session' }
     $existing = Get-ChildSessionId -Stage before-connect
     if ($null -ne $existing -and $existing -ne [uint32]::MaxValue -and -not [ParallelDesktop.ChildSessions]::IsDisconnected($existing)) {
         throw "Child session $existing is already in use. Close its other preview before starting this test."
     }
     $parentId = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    if ($OnStage) { $null = & $OnStage 'create-preview' }
     $form = [Windows.Forms.Form]::new()
     try {
         $form.Text = 'Computer Use - child Windows desktop'
@@ -186,18 +195,27 @@ function Open-ChildSessionHost {
             $banner.Text = $Instruction
             $form.Controls.Add($banner)
         }
+        if ($OnStage) { $null = & $OnStage 'show-preview' }
         $form.Show()
+        if ($OnStage) { $null = & $OnStage 'pump-before-connect' }
         [Windows.Forms.Application]::DoEvents()
-        $control.ConnectLocalChild(1024, 660)
+        if ($OnStage) { $control.ConnectLocalChild(1024, 660, [Action[string]]$OnStage) }
+        else { $control.ConnectLocalChild(1024, 660) }
+        if ($OnStage) { $null = & $OnStage 'rdp-connect-returned' }
         $clock = [Diagnostics.Stopwatch]::StartNew()
         $state = 0
         $attemptObserved = $false
         $lastLookup = 'RDP has not reported a connection'
+        $reportedState = -1
+        $reportedLookup = ''
         do {
+            if ($OnStage -and $reportedState -eq -1) { $null = & $OnStage 'first-message-pump-after-connect' }
             [Windows.Forms.Application]::DoEvents()
             if ($form.IsDisposed) { throw 'The child desktop preview was closed.' }
+            if ($OnStage -and $reportedState -eq -1) { $null = & $OnStage 'first-rdp-state' }
             $state = $control.ConnectionState()
             if ($state -eq 1) {
+                if ($OnStage -and $reportedState -ne 1) { $null = & $OnStage 'read-wts-child-id' 'RDP state=1' }
                 $childId = Get-ChildSessionId -Stage await-child-id
                 if ($null -eq $childId) {
                     $lastLookup = 'WTSGetChildSessionId returned Win32 1168 (0x00000490)'
@@ -209,32 +227,47 @@ function Open-ChildSessionHost {
                     $lastLookup = "WTSGetChildSessionId returned an unusable ID ($childId, parent $parentId)"
                 }
             }
+            if ($OnStage -and ($state -ne $reportedState -or $lastLookup -ne $reportedLookup)) {
+                $reportedState = $state
+                $reportedLookup = $lastLookup
+                $null = & $OnStage 'poll-for-child-session' "RDP state=$state. $lastLookup."
+            }
             if ($state -eq 0 -and $attemptObserved) {
+                if ($OnStage) { $null = & $OnStage 'read-disconnect-reason' }
                 throw "RDP disconnected before child session readiness. ExtendedDisconnectReason=$($control.DisconnectReason()). Last observation: $lastLookup."
             }
             if ($state -ne 0) { $attemptObserved = $true }
             Start-Sleep -Milliseconds 100
         } while ($clock.Elapsed.TotalSeconds -lt $TimeoutSeconds)
+        if ($OnStage) { $null = & $OnStage 'read-timeout-reason' }
         throw "Child session connection timed out after $TimeoutSeconds seconds. RDP state=$state, ExtendedDisconnectReason=$($control.DisconnectReason()). Last observation: $lastLookup."
     } catch {
-        $form.Dispose()
+        try { if ($OnStage) { $null = & $OnStage 'dispose-after-open-failure' $_.Exception.Message } }
+        finally { $form.Dispose() }
         throw
     }
 }
 
 function Test-ChildSessionHostConnected {
-    param([Parameter(Mandatory)]$Child)
-    return (-not $Child.Form.IsDisposed -and $Child.Control.ConnectionState() -eq 1 -and
-        (Get-ChildSessionId -Stage verify-bound-child) -eq $Child.ChildSessionId)
+    param([Parameter(Mandatory)]$Child, [scriptblock]$OnStage)
+    if ($OnStage) { $null = & $OnStage 'verify-rdp-state' }
+    if ($Child.Form.IsDisposed -or $Child.Control.ConnectionState() -ne 1) { return $false }
+    if ($OnStage) { $null = & $OnStage 'verify-wts-child-id' }
+    return ((Get-ChildSessionId -Stage verify-bound-child) -eq $Child.ChildSessionId)
 }
 
 function Close-ChildSessionHost {
-    param([Parameter(Mandatory)]$Child)
+    param([Parameter(Mandatory)]$Child, [scriptblock]$OnStage)
     if (-not $Child.Form.IsDisposed) {
         try {
-            if ($Child.Control.ConnectionState() -ne 0) { $Child.Control.DisconnectChild() }
+            if ($OnStage) { $null = & $OnStage 'read-state-before-close' }
+            if ($Child.Control.ConnectionState() -ne 0) {
+                if ($OnStage) { $null = & $OnStage 'disconnect-rdp' }
+                $Child.Control.DisconnectChild()
+            }
         } finally {
-            $Child.Form.Dispose()
+            try { if ($OnStage) { $null = & $OnStage 'dispose-preview' } }
+            finally { $Child.Form.Dispose() }
         }
     }
 }
