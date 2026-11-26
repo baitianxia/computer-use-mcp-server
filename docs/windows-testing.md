@@ -61,9 +61,13 @@
 
 本实验在同一台 Windows 上开一个子会话。你在主桌面输入数字，本项目的 MCP 执行器在子会话操作三个真实应用。建议先用已解锁的 Windows 10/11 x64 专业版或企业版，确认装有记事本、画图和 Microsoft Edge。完整解压**新版** ZIP 到本地可写目录。可单独运行这个实验，无须先配置 WorkBuddy 或 Claude Code。[微软子会话说明](https://learn.microsoft.com/en-us/windows/win32/termserv/child-sessions)
 
-**安排人工并行测试前**，发布方先在 Windows CI 用同一份解压包执行 `Connect()`，核对 RDP 已连接、Windows 返回的子会话 ID 有效且与主会话不同，再关闭预览。成功记录在 CI 验收附件的 `rdp-child-connection.json`，同目录的 `windows-cu-win-x64.zip.sha256` 标识被测 ZIP。会话检查阻塞或失败时，CI 保留诊断并停止发布。通过后再安排人在主桌面打字，核验实际应用操作和输入隔离。
+**安排人工并行测试前**，发布方先在 Windows CI 用同一份解压包执行 `Connect()`，核对 RDP 已连接、Windows 返回的子会话 ID 有效且与主会话不同，再关闭预览。成功记录在 CI 验收附件的 `rdp-child-connection.json`，同目录的 `archive.sha256` 标识被测 ZIP。会话检查阻塞或失败时，CI 保留诊断并停止发布。通过后再安排人在主桌面打字，核验实际应用操作和输入隔离。
 
-1. 在主桌面双击 **`Start-Parallel-Test.cmd`**。控制台会打印本轮报告路径。如果报告为 `blocked` 并提示 `Windows child sessions are disabled`，普通双击到此结束。要在自己的测试机上启用这项 Windows 设置，在解压目录打开**管理员 PowerShell**，运行 `.\Start-Parallel-Test.cmd -ChildSessionSupport Enable`。完成后关闭管理员窗口，再用普通用户双击测试入口。设备策略不允许时，保留阻塞报告。
+连接检查会在启用子会话、显示预览、调用 ActiveX、核验 ID 和关闭预览前更新 JSON。若文件停在 `in_progress`，先看 `stage`、`hostOperation` 和 `lastHostObservation`，再打开同目录的 `rdp-child-connection.supervisor.json`。在刚启用功能的 GitHub 托管运行器上，如果探针连续观察到前台系统凭据窗口，RDP 仍在连接且 Windows 尚未分配子会话，监督报告会记录 `blocked / interactive_credentials_required`（退出码 2）。窗口所属进程不明确时会观察到时限。无明确原因的超时保留退出码 124。两种情况都保留连接阶段与事件。通过的连接报告必须是 `passed`，且 `rdpWtsBindingVerified` 和 `previewClosed` 都为真。
+
+在独立 CI 分支，若运行器原有的桌面连接受阻，测试会在已开启子会话的同一台运行器上创建一次性普通测试账号，使用已有的本机 RDP 监听器验证新登录的父桌面。测试要求外层父桌面、原运行器桌面和子桌面的会话 ID 两两不同。核对内部报告、脚本哈希和预览关闭结果后，才可判定该路径通过。外层测试结果在 `fresh-parent.json`，内部检查点在 `fresh-parent.inner.json`。
+
+1. 在主桌面双击 **`Start-Parallel-Test.cmd`**。控制台会打印本轮报告路径。如果报告为 `blocked` 并提示 `Windows child sessions are disabled`，普通双击到此结束。要在自己的测试机上启用这项 Windows 设置，在解压目录打开**管理员 PowerShell**，运行 `.\Start-Parallel-Test.cmd -ChildSessionSupport Enable`。**首次启用后，先保存工作，再注销并重新登录 Windows**，然后用普通用户双击测试入口。使用智能卡或在本次登录后才启用子会话时，Windows 可能要求登录。若出现系统凭据窗口，只在 Windows 自己的登录界面输入凭据。设备策略不允许启用时，保留阻塞报告。[微软子会话登录说明](https://learn.microsoft.com/en-us/windows/win32/termserv/child-sessions)
 2. 等标题为 **Computer Use - child Windows desktop** 的窗口连接。在**这个窗口里面**打开文件资源管理器，按预览顶部给出的路径运行本轮 `Run-Child.cmd`（在 `test-results\parallel\本轮编号\` 内）。如果从主桌面误点，脚本会提示会话不符，可以回到子窗口重新打开。请保持子窗口连接；若以前的实验仍在这个子桌面打开了记事本、画图或 Edge 测试窗口，先关闭旧测试窗口。
 3. 回到主桌面的 **Computer Use | 主桌面输入测试**，点“开始”后松开鼠标。六位数字出现后，用键盘反复输入这组数字，输满六位会自动清空。保持鼠标和触控板不动，持续打字直到窗口自己关闭。脚本约每 50 毫秒采样一次；检测到鼠标偏离起点超过 2 个物理像素时，本轮鼠标隔离证据不足。子桌面会输入并保存带本轮编号的文本、在彩色 PNG 上拖出线条并保存，再点击临时 Edge 配置打开的本地网页。实际结果分别从保存的文本、PNG 像素和点击后的网页标题核对。
 4. 打开控制台打印的 **`test-results\parallel\本轮编号\REPORT.md`**。`passed` 表示三个应用均核验成功，且在子程序调用键鼠期间记录到了正确的主桌面输入和足够的焦点样本。`failed` 表示观察到焦点丢失或应用检查失败。`blocked` 表示系统、会话或应用启动条件阻塞。`inconclusive` 表示手动输入、采样覆盖或运行时长不足，或测试已取消。详细证据在 `summary.json`、`focus.json` 和 `parallel-apps.json`（运行到对应阶段才生成）。

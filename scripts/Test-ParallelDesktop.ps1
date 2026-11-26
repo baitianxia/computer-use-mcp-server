@@ -13,6 +13,9 @@ if ($ChildSessionSupport) {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'Requires Windows.' }
     Set-ChildSessionSupport -Enabled ($ChildSessionSupport -eq 'Enable')
     Write-Host ("Windows child sessions enabled: " + (Get-ChildSessionSupport))
+    if ($ChildSessionSupport -eq 'Enable') {
+        Write-Host '若本次首次启用子会话，请先保存工作，注销并重新登录 Windows，然后用普通用户双击 Start-Parallel-Test.cmd。'
+    }
     exit 0
 }
 

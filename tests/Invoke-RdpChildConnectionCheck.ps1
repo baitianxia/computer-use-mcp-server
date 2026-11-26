@@ -23,6 +23,7 @@ public static class RdpProbeWindows {
     [DllImport("user32")] private static extern bool EnumWindows(Visitor visit, IntPtr unused);
     [DllImport("user32")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32")] private static extern IntPtr GetWindow(IntPtr window, uint relation);
     [DllImport("user32")] private static extern uint GetWindowThreadProcessId(IntPtr window, out int processId);
     [DllImport("user32", CharSet=CharSet.Unicode)] private static extern int GetClassName(IntPtr w, StringBuilder text, int max);
     [DllImport("user32", CharSet=CharSet.Unicode)] private static extern int GetWindowText(IntPtr w, StringBuilder text, int max);
@@ -54,6 +55,8 @@ public static class RdpProbeWindows {
         public string windowClass { get; set; }
         public string captionCategory { get; set; }
         public bool foreground { get; set; }
+        public long windowId { get; set; }
+        public string owner { get; set; }
     }
 
     public static Task<Row[]> ReadWindows(int probePid, int sessionId) { return Task.Run(() => Snapshot(probePid, sessionId)); }
@@ -67,7 +70,7 @@ public static class RdpProbeWindows {
                 }
         var rows = new List<Row>();
         IntPtr foreground = GetForegroundWindow();
-        EnumWindows(delegate(IntPtr w, IntPtr unused) {
+        bool complete = EnumWindows(delegate(IntPtr w, IntPtr unused) {
             int pid;
             GetWindowThreadProcessId(w, out pid);
             string name;
@@ -83,9 +86,18 @@ public static class RdpProbeWindows {
             }
             var cls = new StringBuilder(256);
             GetClassName(w, cls, cls.Capacity);
-            rows.Add(new Row { pid=pid, process=name, windowClass=cls.ToString(), captionCategory=category, foreground=(w==foreground) });
+            string owner = "unowned";
+            IntPtr next = GetWindow(w, 4); // GW_OWNER
+            for (int i = 0; i < 16 && next != IntPtr.Zero; i++, next = GetWindow(next, 4)) {
+                int ownerPid;
+                GetWindowThreadProcessId(next, out ownerPid);
+                if (ownerPid == probePid) { owner = "probe"; break; }
+                if (ownerPid != pid) owner = "external";
+            }
+            rows.Add(new Row { pid=pid, process=name, windowClass=cls.ToString(), captionCategory=category, foreground=(w==foreground), windowId=w.ToInt64(), owner=owner });
             return true;
         }, IntPtr.Zero);
+        if (!complete) throw new InvalidOperationException("Window enumeration did not complete.");
         return rows.ToArray();
     }
 }
@@ -124,12 +136,42 @@ function Get-RdpEvents([DateTime]$Since) {
     }
 }
 
+function Get-CredentialDialog($Checkpoint, $Windows, $Wts, [int]$ProbeId, [DateTime]$StartTime) {
+    if (!$Checkpoint -or $Checkpoint.status -ne 'in_progress' -or $Checkpoint.stage -ne 'connect-child' -or
+        $Checkpoint.hostOperation -ne 'poll-for-child-session' -or $Checkpoint.lastHostObservation -notmatch '^RDP state=2\.' -or
+        $Checkpoint.initiallyEnabled -ne $false -or !$Checkpoint.enableAttempted -or
+        $null -ne $Checkpoint.childSessionId -or $Checkpoint.rdpWtsBindingVerified -or
+        !$Checkpoint.startedUtc -or ([DateTimeOffset]$Checkpoint.startedUtc).UtcDateTime -lt $StartTime) { return }
+    if (!$Wts -or !(($Wts.lookupError -eq 1168 -and $null -eq $Wts.childId) -or
+        ($null -eq $Wts.lookupError -and $Wts.childId -eq [uint32]::MaxValue))) { return }
+    $preview = @($Windows | Where-Object { $_.pid -eq $ProbeId -and $_.captionCategory -eq 'probe-preview' })
+    if ($preview.Count -ne 1) { return }
+    $Windows | Where-Object { $_.foreground -and $_.process -eq 'CredentialUIBroker' -and
+        $_.windowClass -ceq 'Credential Dialog Xaml Host' -and $_.captionCategory -eq 'security-or-credentials' -and
+        $_.windowId -gt 0 -and $_.owner -in @('unowned','probe') } | Select-Object -First 1
+}
+
+function Read-RdpSnapshot([int]$ProbeId) {
+    $ws = [RdpProbeWindows]::ReadWindows($ProbeId, [Diagnostics.Process]::GetCurrentProcess().SessionId)
+    $wt = [RdpProbeWindows]::ReadChildState()
+    $snap = [ordered]@{ at=[DateTime]::UtcNow.ToString('o'); windows=@(); wts=$null }
+    try {
+        if (!$ws.Wait(1500)) { throw [TimeoutException]::new() }
+        $snap.windows = $ws.Result
+    } catch { $record.diagnosticErrors += "Window snapshot: $($_.Exception.GetType().Name)" }
+    try {
+        if (!$wt.Wait(1500)) { throw [TimeoutException]::new() }
+        $snap.wts = $wt.Result
+    } catch { $record.diagnosticErrors += "WTS snapshot: $($_.Exception.GetType().Name)" }
+    $snap
+}
+
 $target = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ReportPath)
 $output = [IO.Path]::ChangeExtension($target, 'supervisor.json')
 [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
 $start = [DateTime]::UtcNow
 $record = [ordered]@{status='in_progress'; startedUtc=$start.ToString('o'); processTimeoutSeconds=$ProcessTimeoutSeconds
-    probePid=$null; childExitCode=$null; checkpointStage=$null; wtsAtTimeout=$null; windows=@(); events=@(); diagnosticErrors=@()}
+    reason=$null; credentialPrompt=$null; probePid=$null; childExitCode=$null; checkpointStage=$null; wtsAtTimeout=$null; windows=@(); events=@(); diagnosticErrors=@()}
 function Save-SupervisorReport {
     $temp = "$output.$PID.tmp"
     [IO.File]::WriteAllText($temp, ($record | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
@@ -148,29 +190,77 @@ if ($EnableOnHostedRunner) { $ps.ArgumentList.Add('-EnableOnHostedRunner') }
 $proc = $null
 $exitCode = 1
 try {
+    $watchPrompt = $EnableOnHostedRunner -and $env:GITHUB_ACTIONS -ceq 'true' -and
+        $env:RUNNER_OS -ceq 'Windows' -and $env:RUNNER_ENVIRONMENT -ceq 'github-hosted'
+    if ($watchPrompt) {
+        try {
+            $baseline = [RdpProbeWindows]::ReadWindows(0, [Diagnostics.Process]::GetCurrentProcess().SessionId)
+            if (!$baseline.Wait(1500) -or @($baseline.Result | Where-Object process -eq 'CredentialUIBroker').Count) {
+                $watchPrompt = $false
+            }
+        } catch { $watchPrompt = $false }
+    }
     $proc = [Diagnostics.Process]::Start($ps)
     $record.probePid = $proc.Id
-    if (!$proc.WaitForExit($ProcessTimeoutSeconds * 1000)) {
-        $exitCode = 124
-        $record.status = 'timed_out'
-        Save-SupervisorReport
-        $windowTask = [RdpProbeWindows]::ReadWindows($proc.Id, [Diagnostics.Process]::GetCurrentProcess().SessionId)
-        $wtsTask = [RdpProbeWindows]::ReadChildState()
-        try {
-            if (!$windowTask.Wait(1500)) { throw [TimeoutException]::new() }
-            $record.windows = $windowTask.Result
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    $first = $null
+    $priorDialog = $null
+    while (!$proc.HasExited) {
+        $remaining = [Math]::Max(0, $ProcessTimeoutSeconds * 1000 - $clock.ElapsedMilliseconds)
+        $wait = if ($watchPrompt) { [Math]::Min(5000, $remaining) } else { $remaining }
+        if ($proc.WaitForExit([int]$wait)) { break }
+        $atDeadline = $clock.ElapsedMilliseconds -ge $ProcessTimeoutSeconds * 1000
+        $snapshot = Read-RdpSnapshot $proc.Id
+        $dialog = $null
+        if ($watchPrompt) {
+            try {
+                $checkpoint = Get-Content -LiteralPath $target -Raw -Encoding utf8 | ConvertFrom-Json
+                $dialog = Get-CredentialDialog $checkpoint $snapshot.windows $snapshot.wts $proc.Id $start
+            } catch { $dialog = $null }
         }
-        catch { $record.diagnosticErrors += "Window snapshot: $($_.Exception.GetType().Name)" }
-        try {
-            if (!$wtsTask.Wait(1500)) { throw [TimeoutException]::new() }
-            $record.wtsAtTimeout = $wtsTask.Result
+        # A broker window can be unowned even if RDP initiated it. For an unowned
+        # window allow the probe its full time budget before classifying the wait.
+        if ($dialog -and $priorDialog -and $dialog.pid -eq $priorDialog.pid -and
+            $dialog.windowId -eq $priorDialog.windowId -and $clock.ElapsedMilliseconds - $first.elapsed -ge 4500 -and
+            ($dialog.owner -eq 'probe' -or $atDeadline)) {
+            if ($proc.WaitForExit(250)) { break }
+            try {
+                $latest = Get-Content -LiteralPath $target -Raw -Encoding utf8 | ConvertFrom-Json
+                if (!(Get-CredentialDialog $latest $snapshot.windows $snapshot.wts $proc.Id $start)) {
+                    $priorDialog = $null
+                    continue
+                }
+            } catch { $priorDialog = $null; continue }
+            $exitCode = 2
+            $record.status = 'blocked'
+            $record.reason = 'interactive_credentials_required'
+            $record.windows = $snapshot.windows
+            $record.credentialPrompt = @{firstSeenUtc=$first.at; confirmedUtc=$snapshot.at; wts=$snapshot.wts; owner=$dialog.owner}
+            break
         }
-        catch { $record.diagnosticErrors += "WTS snapshot: $($_.Exception.GetType().Name)" }
-    } else {
+        if ($dialog) {
+            if (!$priorDialog -or $dialog.pid -ne $priorDialog.pid -or $dialog.windowId -ne $priorDialog.windowId) {
+                $first = @{at=$snapshot.at; elapsed=$clock.ElapsedMilliseconds}
+            }
+        } else { $first = $null }
+        $priorDialog = $dialog
+        if ($atDeadline) {
+            $exitCode = 124
+            $record.status = 'timed_out'
+            $record.wtsAtTimeout = $snapshot.wts
+            $record.windows = $snapshot.windows
+            break
+        }
+        if ($watchPrompt -and $record.diagnosticErrors.Count) { $watchPrompt = $false }
+    }
+    if ($proc.HasExited) {
         $record.childExitCode = $proc.ExitCode
         $exitCode = $proc.ExitCode
         $record.status = switch ($exitCode) { 0 {'passed'} 2 {'blocked'} default {'failed'} }
+        $record.reason = $null
+        $record.credentialPrompt = $null
     }
+    Save-SupervisorReport
 } catch {
     $record.status = 'failed'
     $record.diagnosticErrors += "Probe execution: $($_.Exception.Message)"

@@ -63,6 +63,8 @@ jobs:
           $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ./tests/Test-ChildSessionLookup.ps1
           if ($LASTEXITCODE -ne 0) { throw 'Child lookup regression failed.' }
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ./tests/Test-RdpCredentialObservation.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'RDP credential prompt regression failed.' }
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ./tests/Test-RdpChildOperations.ps1 -BundleRoot $bundle
           if ($LASTEXITCODE -ne 0) { throw 'RDP operation regression failed.' }
       - name: Configure a real Windows RDP control
@@ -72,7 +74,8 @@ jobs:
           $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
           & powershell.exe -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File ./tests/Test-RdpChildConfiguration.ps1 -BundleRoot $bundle 2>&1 | Tee-Object evidence/rdp-configuration.log
           if ($LASTEXITCODE -ne 0) { throw 'Real ActiveX configuration failed.' }
-      - name: Connect to a real Windows child session
+      - name: Check the existing parent session after enabling child sessions
+        id: existing_parent
         if: ${{ !cancelled() && steps.bundle.outcome == 'success' }}
         timeout-minutes: 4
         run: |
@@ -84,9 +87,27 @@ jobs:
           $data = Get-Content -LiteralPath $report -Raw -Encoding utf8
           $data
           $r = $data | ConvertFrom-Json
-          if ($rc -ne 0 -or $r.status -ne 'passed' -or !$r.rdpWtsBindingVerified -or !$r.previewClosed -or $r.hostScriptSha256 -ne (Get-FileHash -LiteralPath (Join-Path $bundle 'scripts/ChildSessionHost.ps1')).Hash) {
-            throw "RDP validation $($r.status) at $($r.stage): $($r.detail)"
+          if ($r.hostScriptSha256 -ne (Get-FileHash -LiteralPath (Join-Path $bundle 'scripts/ChildSessionHost.ps1')).Hash) { throw 'Unexpected RDP host hash.' }
+          if ($rc -eq 0 -and $r.status -eq 'passed' -and $r.rdpWtsBindingVerified -and $r.previewClosed) {
+            'connected=true' >> $env:GITHUB_OUTPUT
+          } else {
+            $diagnosis = Get-Content -LiteralPath 'evidence/rdp-child-connection.supervisor.json' -Raw | ConvertFrom-Json
+            if ($rc -ne 2 -or $diagnosis.status -ne 'blocked' -or $diagnosis.reason -ne 'interactive_credentials_required') {
+              throw "Original parent check exited with $rc at $($r.stage): $($r.detail)"
+            }
+            Write-Host 'The original parent requires interactive credentials. The connection gate remains open.'
           }
+          exit 0
+      - name: Verify the connection from a parent logged in after enablement
+        if: ${{ !cancelled() && steps.bundle.outcome == 'success' && steps.existing_parent.outputs.connected != 'true' }}
+        timeout-minutes: 5
+        run: |
+          $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
+          $report = Join-Path $pwd 'evidence/fresh-parent.json'
+          & powershell.exe -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File ./tests/Invoke-FreshParentRdpCheck.ps1 -BundleRoot $bundle -ReportPath $report -TimeoutSeconds 75
+          $rc = $LASTEXITCODE
+          $r = Get-Content -LiteralPath $report -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($rc -ne 0 -or $r.status -ne 'passed') { throw "Fresh-parent check exited with $rc at $($r.stage): $($r.detail)" }
       - name: Collect RDP events from this run
         if: always()
         run: |
