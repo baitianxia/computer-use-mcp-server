@@ -1,0 +1,103 @@
+name: Windows child-session validation
+on:
+  push:
+    branches: ['codex/windows-child-ci-20261126-01']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      WINDOWS_CU_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Record Windows runner and RDP services
+        run: |
+          New-Item -ItemType Directory -Force evidence | Out-Null
+          $os = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+          $sys = @{
+            startUtc = [datetime]::UtcNow.ToString('o')
+            commit = $env:GITHUB_SHA
+            build = "$($os.CurrentBuild).$($os.UBR)"
+            edition = $os.EditionID
+            image = $env:ImageVersion
+            sessionId = (Get-Process -Id $PID).SessionId
+            interactive = [Environment]::UserInteractive
+            services = @(Get-Service TermService,SessionEnv | Select-Object Name,@{n='status';e={$_.Status.ToString()}})
+          }
+          $sys | ConvertTo-Json -Depth 4 | Tee-Object -FilePath evidence/runner.json
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build the branch and run portable checks
+        run: |
+          & ./scripts/Build.ps1 -Runtime win-x64 *>&1 | Tee-Object evidence/build.log
+          if ($LASTEXITCODE -ne 0) { throw 'Build or portable checks failed.' }
+      - name: Verify files in the exact Windows test ZIP
+        id: bundle
+        run: |
+          $archive = Get-Item artifacts/windows-cu-win-x64.zip
+          $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
+          Expand-Archive -LiteralPath $archive.FullName -DestinationPath $bundle
+          $sha = (Get-FileHash -LiteralPath $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha  $($archive.Name)" | Set-Content -LiteralPath evidence/archive.sha256 -Encoding ascii
+          $manifest = Get-Content -LiteralPath (Join-Path $bundle 'package-manifest.json') -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($manifest.sourceCommit -ne $env:GITHUB_SHA) { throw 'Unexpected package source.' }
+          foreach ($item in $manifest.files) {
+            $p = Get-Item -LiteralPath (Join-Path $bundle $item.path)
+            if ($p.Length -ne $item.bytes -or (Get-FileHash -LiteralPath $p.FullName).Hash -ne $item.sha256) { throw "Manifest mismatch: $($item.path)" }
+          }
+          $hostSha = (Get-FileHash -LiteralPath (Join-Path $bundle 'scripts/ChildSessionHost.ps1')).Hash
+          if ($hostSha -ne '68c23981a632a4d50662d0c87c84e1b2ea7bb5e60eff982f9eb0e7a1eaf6ddbe') { throw 'RDP script differs from the candidate under investigation.' }
+          "Validated $($manifest.files.Count) package files, archive SHA-256 $sha, RDP host SHA-256 $hostSha"
+      - name: Run Windows PowerShell lookup and simulated control regressions
+        run: |
+          $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ./tests/Test-ChildSessionLookup.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Child lookup regression failed.' }
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ./tests/Test-RdpChildOperations.ps1 -BundleRoot $bundle
+          if ($LASTEXITCODE -ne 0) { throw 'RDP operation regression failed.' }
+      - name: Configure a real Windows RDP control
+        if: ${{ !cancelled() && steps.bundle.outcome == 'success' }}
+        timeout-minutes: 3
+        run: |
+          $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
+          & powershell.exe -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File ./tests/Test-RdpChildConfiguration.ps1 -BundleRoot $bundle 2>&1 | Tee-Object evidence/rdp-configuration.log
+          if ($LASTEXITCODE -ne 0) { throw 'Real ActiveX configuration failed.' }
+      - name: Connect to a real Windows child session
+        if: ${{ !cancelled() && steps.bundle.outcome == 'success' }}
+        timeout-minutes: 4
+        run: |
+          $bundle = Join-Path $env:RUNNER_TEMP 'Computer Use 测试包'
+          $report = Join-Path $pwd 'evidence/rdp-child-connection.json'
+          & powershell.exe -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File ./tests/Test-RdpChildConnection.ps1 -BundleRoot $bundle -ReportPath $report -EnableOnHostedRunner
+          $rc = $LASTEXITCODE
+          $data = Get-Content -LiteralPath $report -Raw -Encoding utf8
+          $data
+          $r = $data | ConvertFrom-Json
+          if ($rc -ne 0 -or $r.status -ne 'passed' -or !$r.rdpWtsBindingVerified -or !$r.previewClosed -or $r.hostScriptSha256 -ne (Get-FileHash -LiteralPath (Join-Path $bundle 'scripts/ChildSessionHost.ps1')).Hash) {
+            throw "RDP validation $($r.status) at $($r.stage): $($r.detail)"
+          }
+      - name: Collect RDP events from this run
+        if: always()
+        run: |
+          $start = (Get-Item 'evidence/runner.json').CreationTime.AddSeconds(-5)
+          $channels = @('Microsoft-Windows-TerminalServices-RDPClient/Operational','Microsoft-Windows-TerminalServices-LocalSessionManager/Operational','Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational')
+          $records = @(foreach ($ch in $channels) {
+            Get-WinEvent -FilterHashtable @{LogName=$ch; StartTime=$start} -MaxEvents 60 -ErrorAction SilentlyContinue |
+              Select-Object TimeCreated,LogName,Id,LevelDisplayName
+          })
+          ConvertTo-Json -InputObject $records -Depth 3 | Set-Content -LiteralPath evidence/rdp-events.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-child-evidence-${{ github.run_id }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 14

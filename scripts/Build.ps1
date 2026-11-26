@@ -22,6 +22,8 @@ try {
     }
     New-Item -ItemType Directory -Force "$package/scripts", "$package/.claude", "$package/docs" | Out-Null
     Copy-Item scripts/Test-Windows.ps1, scripts/Register-ClaudeMcp.ps1, scripts/Install-Claude.ps1 "$package/scripts/"
+    Copy-Item scripts/ChildSessionHost.ps1, scripts/Test-ParallelDesktop.ps1, scripts/Test-ParallelFocus.ps1, scripts/Test-ParallelWorker.ps1 "$package/scripts/"
+    Copy-Item Start-Parallel-Test.cmd "$package/"
     Copy-Item .claude/skills "$package/.claude/" -Recurse
     Copy-Item templates "$package/" -Recurse
     Copy-Item docs/interfaces.md, docs/human-guidance.md "$package/docs/"

@@ -5,6 +5,12 @@ using WindowsComputerUse.Core;
 using WindowsComputerUse.Server;
 using WindowsComputerUse.Worker;
 
+if (args.Contains("--parallel-apps"))
+{
+    Environment.ExitCode = await McpProbe.RunParallelApps(args);
+    return;
+}
+
 if (args.Contains("--windows-matrix"))
 {
     Environment.ExitCode = await McpProbe.RunMatrix(args);
@@ -157,6 +163,44 @@ Check("failure of both capture backends retains both error causes", () =>
     catch (DesktopException ex)
     {
         Assert(ex.Error.Code == "capture_failed" && ex.Message.Contains("wgc_timeout") && ex.Message.Contains("print_window failed"), "Missing backend failure evidence.");
+    }
+});
+await CheckAsync("parallel app capture reacquires a transient frame on the same window and backend", async () =>
+{
+    foreach (string code in new[] { "stale_capture", "capture_geometry_mismatch" })
+    {
+        var request = new CaptureRequest("target", "auto");
+        int calls = 0;
+        var frame = await McpProbe.CaptureStableAppFrame(request, actual =>
+        {
+            Assert(actual == request, "Retry changed the capture target or backend.");
+            if (++calls == 1) throw new DesktopException(code, "Window is settling.", retryable: true);
+            return Task.FromResult(Wire.Element(new { observationId = "fresh" }));
+        });
+        Assert(calls == 2 && frame.GetProperty("observationId").GetString() == "fresh", "Expected a fresh second observation.");
+    }
+});
+await CheckAsync("parallel app capture preserves terminal errors and stops after one retry", async () =>
+{
+    foreach (var (code, execution, retryable, expectedCalls) in new[] {
+        ("stale_capture", "not_executed", true, 2), ("stale_capture", "not_executed", false, 1),
+        ("capture_geometry_mismatch", "unknown", true, 1), ("capture_access_denied", "not_executed", true, 1),
+        ("capture_failed", "not_executed", true, 1) })
+    {
+        int calls = 0;
+        DesktopException? last = null;
+        try
+        {
+            await McpProbe.CaptureStableAppFrame(new("target", "auto"), _ =>
+            {
+                calls++;
+                last = new DesktopException(code, $"Capture attempt {calls}", execution, retryable);
+                return Task.FromException<JsonElement>(last);
+            });
+            throw new Exception("Expected the capture failure to propagate.");
+        }
+        catch (DesktopException ex) { Assert(ReferenceEquals(ex, last), "Lost the last capture failure."); }
+        Assert(calls == expectedCalls, $"Unexpected capture count for {code}/{execution}/{retryable}: {calls}.");
     }
 });
 Check("WGC visible-frame coordinates exclude invisible window borders", () =>

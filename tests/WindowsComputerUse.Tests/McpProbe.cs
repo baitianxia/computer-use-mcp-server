@@ -46,7 +46,15 @@ internal sealed partial class McpProbe : IDisposable
     {
         var result = await Request("tools/call", new { name, arguments });
         bool isError = result.TryGetProperty("isError", out var error) && error.GetBoolean();
-        if (isError != expectError) throw new Exception($"Unexpected tool outcome for {name}: {result.GetRawText()}");
+        if (isError && !expectError)
+        {
+            var payload = Payload(result);
+            if (payload.TryGetProperty("error", out var cause) && cause.ValueKind == JsonValueKind.Object &&
+                cause.TryGetProperty("execution", out _) && cause.Deserialize<DesktopError>(Wire.Json) is { } desktop)
+                throw new DesktopException(desktop.Code, $"{name} failed: {cause.GetRawText()}", desktop.Execution, desktop.Retryable);
+            throw new InvalidOperationException($"{name} failed: {payload.GetRawText()}");
+        }
+        if (!isError && expectError) throw new InvalidOperationException($"{name} succeeded when an error was expected.");
         return result;
     }
 
